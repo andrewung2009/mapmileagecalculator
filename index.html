@@ -193,7 +193,7 @@ async function calculateRoute() {
         `Distance: ${distanceKm.toFixed(2)} km<br>Earnings: RM ${earnings.toFixed(2)}`;
 
     if (routeLayer) map.removeLayer(routeLayer);
-    routeLayer = L.geoJSON(route.geometry, { color: '#00f7ff' }).addTo(map);
+    routeLayer = L.geoJSON(route.geometry, { color: '#EE422E' }).addTo(map);
     map.fitBounds(routeLayer.getBounds());
 }
 
