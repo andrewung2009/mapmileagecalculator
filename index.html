@@ -24,12 +24,14 @@
         background: rgba(20, 20, 20, 0.85);
         border-radius: 12px;
         padding: 15px;
-        width: 300px;
+        width: 320px;
         box-shadow: 0 0 15px #00f7ff;
         border: 1px solid #00f7ff;
         backdrop-filter: blur(10px);
         z-index: 1001;
         transition: all 0.3s ease;
+        max-height: 90vh;
+        overflow-y: auto;
     }
     .toggle-btn {
         position: absolute;
@@ -68,6 +70,7 @@
         cursor: pointer;
         border-radius: 5px;
         font-weight: bold;
+        margin-top: 5px;
     }
     button:hover {
         background: #00c4cc;
@@ -96,6 +99,9 @@
     .autocomplete-suggestion:hover {
         background: rgba(0, 247, 255, 0.2);
     }
+    .input-group {
+        position: relative;
+    }
     @keyframes fadeIn {
         from { opacity: 0; transform: translateY(-5px); }
         to { opacity: 1; transform: translateY(0); }
@@ -107,14 +113,20 @@
 
 <div class="control-panel" id="planner">
     <h3>🚚 Delivery Planner</h3>
-    <div class="input-group" style="position: relative;">
+    <div class="input-group" style="margin-bottom:10px;">
         <input type="text" id="start" placeholder="Enter Start Location">
         <div id="startList" class="autocomplete-list"></div>
     </div>
-    <div class="input-group" style="position: relative;">
+    
+    <div id="waypoints-container"></div>
+    
+    <button id="addWaypointBtn" type="button">+ Add Location</button>
+    
+    <div class="input-group" style="margin-top:10px;">
         <input type="text" id="end" placeholder="Enter Destination">
         <div id="endList" class="autocomplete-list"></div>
     </div>
+    
     <button onclick="calculateRoute()">Calculate</button>
     <p id="output"></p>
 </div>
@@ -128,7 +140,10 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; OpenStreetMap contributors'
 }).addTo(map);
 
-let startCoords = null, endCoords = null, routeLayer = null;
+let startCoords = null;
+let endCoords = null;
+let waypointCoords = [];
+let routeLayer = null;
 
 function autocomplete(inputId, listId) {
     const input = document.getElementById(inputId);
@@ -158,23 +173,86 @@ function autocomplete(inputId, listId) {
                 input.value = displayName;
                 list.innerHTML = '';
                 input.blur();  // Remove focus to prevent reopening dropdown immediately
-                if (inputId === 'start') startCoords = f.geometry.coordinates.slice().reverse();
-                if (inputId === 'end') endCoords = f.geometry.coordinates.slice().reverse();
+
+                if (inputId === 'start') {
+                    startCoords = f.geometry.coordinates.slice().reverse();
+                } else if (inputId === 'end') {
+                    endCoords = f.geometry.coordinates.slice().reverse();
+                } else if (inputId.startsWith('waypoint-')) {
+                    // waypoint index number
+                    const idx = parseInt(inputId.split('-')[1]);
+                    waypointCoords[idx] = f.geometry.coordinates.slice().reverse();
+                }
             };
             list.appendChild(div);
         });
     });
 }
 
+// Initialize autocomplete for start and end
 autocomplete('start', 'startList');
 autocomplete('end', 'endList');
 
+// Add waypoint input dynamically
+const waypointsContainer = document.getElementById('waypoints-container');
+const addWaypointBtn = document.getElementById('addWaypointBtn');
+
+function addWaypointInput() {
+    const idx = waypointCoords.length; // next index
+    const wrapper = document.createElement('div');
+    wrapper.className = 'input-group';
+    wrapper.style.marginBottom = '10px';
+    wrapper.style.position = 'relative';
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.placeholder = `Enter Location ${idx + 1}`;
+    input.id = `waypoint-${idx}`;
+    input.autocomplete = 'off';
+
+    const list = document.createElement('div');
+    list.className = 'autocomplete-list';
+    list.id = `waypointList-${idx}`;
+
+    wrapper.appendChild(input);
+    wrapper.appendChild(list);
+    waypointsContainer.appendChild(wrapper);
+
+    // Initialize autocomplete on the new input
+    autocomplete(input.id, list.id);
+
+    // Add null entry for this waypoint coords until selected
+    waypointCoords.push(null);
+}
+
+addWaypointBtn.addEventListener('click', () => {
+    addWaypointInput();
+});
+
+// Calculate route with multiple waypoints
 async function calculateRoute() {
-    if (!startCoords || !endCoords) {
-        alert("Please select both start and end locations from suggestions.");
+    if (!startCoords) {
+        alert("Please select a start location from suggestions.");
         return;
     }
-    const url = `https://router.project-osrm.org/route/v1/driving/${startCoords[1]},${startCoords[0]};${endCoords[1]},${endCoords[0]}?overview=full&geometries=geojson`;
+    if (!endCoords) {
+        alert("Please select an end location from suggestions.");
+        return;
+    }
+    // Check waypoints have coords or null
+    for (let i = 0; i < waypointCoords.length; i++) {
+        if (waypointCoords[i] === null) {
+            alert(`Please select Location ${i + 1} from suggestions or remove it.`);
+            return;
+        }
+    }
+
+    // Build coordinates string for OSRM: start;waypoint1;waypoint2;...;end
+    const allCoords = [startCoords, ...waypointCoords, endCoords];
+    // Format: lon,lat;lon,lat;...
+    const coordStr = allCoords.map(c => `${c[1]},${c[0]}`).join(';');
+
+    const url = `https://router.project-osrm.org/route/v1/driving/${coordStr}?overview=full&geometries=geojson&steps=false`;
     const res = await fetch(url);
     const data = await res.json();
     if (data.code !== 'Ok') {
