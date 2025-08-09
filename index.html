@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Futuristic Delivery Planner</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<style>
+    body {
+        margin: 0;
+        background: black;
+        font-family: 'Segoe UI', sans-serif;
+        color: white;
+    }
+    #map {
+        height: 100vh;
+        width: 100%;
+        z-index: 0; /* keep map behind panel */
+    }
+    .control-panel {
+        position: absolute;
+        bottom: 80px;
+        right: 20px;
+        background: rgba(20, 20, 20, 0.85);
+        border-radius: 12px;
+        padding: 15px;
+        width: 300px;
+        box-shadow: 0 0 15px #00f7ff;
+        border: 1px solid #00f7ff;
+        backdrop-filter: blur(10px);
+        z-index: 1001;
+        transition: all 0.3s ease;
+    }
+    .toggle-btn {
+        position: absolute;
+        bottom: 20px;
+        right: 20px;
+        background: #00f7ff;
+        border: none;
+        border-radius: 50%;
+        width: 50px;
+        height: 50px;
+        color: #000;
+        font-size: 24px;
+        cursor: pointer;
+        box-shadow: 0 0 15px #00f7ff;
+        z-index: 1002;
+        transition: transform 0.3s ease;
+    }
+    .toggle-btn:hover {
+        transform: scale(1.1);
+    }
+    input {
+        width: calc(100% - 20px);
+        padding: 8px;
+        margin-bottom: 5px;
+        border: 1px solid #00f7ff;
+        border-radius: 5px;
+        background: rgba(0,0,0,0.6);
+        color: #00f7ff;
+    }
+    button {
+        padding: 10px;
+        width: 100%;
+        background: #00f7ff;
+        color: black;
+        border: none;
+        cursor: pointer;
+        border-radius: 5px;
+        font-weight: bold;
+    }
+    button:hover {
+        background: #00c4cc;
+    }
+    .autocomplete-list {
+        position: absolute;
+        background: rgba(10, 10, 10, 0.85);
+        border: 1px solid #00f7ff;
+        border-radius: 8px;
+        box-shadow: 0 0 10px #00f7ff;
+        backdrop-filter: blur(6px);
+        max-height: 150px;
+        overflow-y: auto;
+        z-index: 2000;
+        width: calc(100% - 20px);
+        margin-top: 2px;
+        animation: fadeIn 0.2s ease-in-out;
+    }
+    .autocomplete-suggestion {
+        padding: 8px 10px;
+        cursor: pointer;
+        color: #00f7ff;
+        font-size: 14px;
+        transition: background 0.2s ease;
+    }
+    .autocomplete-suggestion:hover {
+        background: rgba(0, 247, 255, 0.2);
+    }
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(-5px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+</style>
+</head>
+<body>
+<div id="map"></div>
+
+<div class="control-panel" id="planner">
+    <h3>🚚 Delivery Planner</h3>
+    <div class="input-group" style="position: relative;">
+        <input type="text" id="start" placeholder="Enter Start Location">
+        <div id="startList" class="autocomplete-list"></div>
+    </div>
+    <div class="input-group" style="position: relative;">
+        <input type="text" id="end" placeholder="Enter Destination">
+        <div id="endList" class="autocomplete-list"></div>
+    </div>
+    <button onclick="calculateRoute()">Calculate</button>
+    <p id="output"></p>
+</div>
+
+<button class="toggle-btn" onclick="togglePanel()">☰</button>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+let map = L.map('map').setView([1.5533, 110.3592], 8);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors'
+}).addTo(map);
+
+let startCoords = null, endCoords = null, routeLayer = null;
+
+function autocomplete(inputId, listId) {
+    const input = document.getElementById(inputId);
+    const list = document.getElementById(listId);
+
+    input.addEventListener('input', async function () {
+        const query = this.value.trim();
+        if (query.length < 2) {
+            list.innerHTML = '';
+            return;
+        }
+        // Photon API restricted to Sarawak bounding box
+        const bbox = "109.5,0.8,115,5.5";
+        const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&bbox=${bbox}&limit=5`;
+        const res = await fetch(url);
+        const data = await res.json();
+        list.innerHTML = '';
+        data.features.forEach(f => {
+            const name = f.properties.name || '';
+            const city = f.properties.city || '';
+            const state = f.properties.state || '';
+            const displayName = `${name}, ${city}, ${state}`;
+            const div = document.createElement('div');
+            div.classList.add('autocomplete-suggestion');
+            div.textContent = displayName;
+            div.onclick = () => {
+                input.value = displayName;
+                list.innerHTML = '';
+                input.blur();  // Remove focus to prevent reopening dropdown immediately
+                if (inputId === 'start') startCoords = f.geometry.coordinates.slice().reverse();
+                if (inputId === 'end') endCoords = f.geometry.coordinates.slice().reverse();
+            };
+            list.appendChild(div);
+        });
+    });
+}
+
+autocomplete('start', 'startList');
+autocomplete('end', 'endList');
+
+async function calculateRoute() {
+    if (!startCoords || !endCoords) {
+        alert("Please select both start and end locations from suggestions.");
+        return;
+    }
+    const url = `https://router.project-osrm.org/route/v1/driving/${startCoords[1]},${startCoords[0]};${endCoords[1]},${endCoords[0]}?overview=full&geometries=geojson`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if (data.code !== 'Ok') {
+        alert("Routing failed.");
+        return;
+    }
+    const route = data.routes[0];
+    const distanceKm = route.distance / 1000;
+
+    // Earnings: RM10 if 15km or less, else RM0.50 per km (full distance)
+    let earnings = 0;
+    if (distanceKm <= 15) earnings = 10;
+    else earnings = distanceKm * 0.5;
+
+    document.getElementById('output').innerHTML =
+        `Distance: ${distanceKm.toFixed(2)} km<br>Earnings: RM ${earnings.toFixed(2)}`;
+
+    if (routeLayer) map.removeLayer(routeLayer);
+    routeLayer = L.geoJSON(route.geometry, { color: '#00f7ff' }).addTo(map);
+    map.fitBounds(routeLayer.getBounds());
+}
+
+function togglePanel() {
+    const panel = document.getElementById('planner');
+    panel.style.display = (panel.style.display === 'none') ? 'block' : 'none';
+}
+</script>
+</body>
+</html>
