@@ -129,6 +129,9 @@
     
     <button onclick="calculateRoute()">Calculate</button>
     <p id="output"></p>
+
+    <!-- DOWNLOAD BUTTON -->
+    <button id="downloadBtn" onclick="downloadSummary()" style="margin-top:8px;">📥 Download Summary</button>
 </div>
 
 <button class="toggle-btn" onclick="togglePanel()">☰</button>
@@ -155,7 +158,6 @@ function autocomplete(inputId, listId) {
             list.innerHTML = '';
             return;
         }
-        // Photon API restricted to Sarawak bounding box
         const bbox = "109.5,0.8,115,5.5";
         const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&bbox=${bbox}&limit=5`;
         const res = await fetch(url);
@@ -172,14 +174,13 @@ function autocomplete(inputId, listId) {
             div.onclick = () => {
                 input.value = displayName;
                 list.innerHTML = '';
-                input.blur();  // Remove focus to prevent reopening dropdown immediately
+                input.blur();
 
                 if (inputId === 'start') {
                     startCoords = f.geometry.coordinates.slice().reverse();
                 } else if (inputId === 'end') {
                     endCoords = f.geometry.coordinates.slice().reverse();
                 } else if (inputId.startsWith('waypoint-')) {
-                    // waypoint index number
                     const idx = parseInt(inputId.split('-')[1]);
                     waypointCoords[idx] = f.geometry.coordinates.slice().reverse();
                 }
@@ -189,16 +190,14 @@ function autocomplete(inputId, listId) {
     });
 }
 
-// Initialize autocomplete for start and end
 autocomplete('start', 'startList');
 autocomplete('end', 'endList');
 
-// Add waypoint input dynamically
 const waypointsContainer = document.getElementById('waypoints-container');
 const addWaypointBtn = document.getElementById('addWaypointBtn');
 
 function addWaypointInput() {
-    const idx = waypointCoords.length; // next index
+    const idx = waypointCoords.length;
     const wrapper = document.createElement('div');
     wrapper.className = 'input-group';
     wrapper.style.marginBottom = '10px';
@@ -218,10 +217,7 @@ function addWaypointInput() {
     wrapper.appendChild(list);
     waypointsContainer.appendChild(wrapper);
 
-    // Initialize autocomplete on the new input
     autocomplete(input.id, list.id);
-
-    // Add null entry for this waypoint coords until selected
     waypointCoords.push(null);
 }
 
@@ -229,7 +225,6 @@ addWaypointBtn.addEventListener('click', () => {
     addWaypointInput();
 });
 
-// Calculate route with multiple waypoints
 async function calculateRoute() {
     if (!startCoords) {
         alert("Please select a start location from suggestions.");
@@ -239,7 +234,6 @@ async function calculateRoute() {
         alert("Please select an end location from suggestions.");
         return;
     }
-    // Check waypoints have coords or null
     for (let i = 0; i < waypointCoords.length; i++) {
         if (waypointCoords[i] === null) {
             alert(`Please select Location ${i + 1} from suggestions or remove it.`);
@@ -247,9 +241,7 @@ async function calculateRoute() {
         }
     }
 
-    // Build coordinates string for OSRM: start;waypoint1;waypoint2;...;end
     const allCoords = [startCoords, ...waypointCoords, endCoords];
-    // Format: lon,lat;lon,lat;...
     const coordStr = allCoords.map(c => `${c[1]},${c[0]}`).join(';');
 
     const url = `https://router.project-osrm.org/route/v1/driving/${coordStr}?overview=full&geometries=geojson&steps=false`;
@@ -262,7 +254,6 @@ async function calculateRoute() {
     const route = data.routes[0];
     const distanceKm = route.distance / 1000;
 
-    // Earnings: RM10 if 15km or less, else RM0.50 per km (full distance)
     let earnings = 0;
     if (distanceKm <= 15) earnings = 10;
     else earnings = distanceKm * 0.5;
@@ -280,5 +271,55 @@ function togglePanel() {
     panel.style.display = (panel.style.display === 'none') ? 'block' : 'none';
 }
 </script>
+
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script>
+async function downloadSummary() {
+    const output = document.getElementById('output');
+    if (!output.innerText.trim()) {
+        alert('Please calculate a route first.');
+        return;
+    }
+
+    const info = document.createElement('div');
+    info.id = 'capture-banner';
+    info.style.position = 'absolute';
+    info.style.top = '10px';
+    info.style.left = '50%';
+    info.style.transform = 'translateX(-50%)';
+    info.style.zIndex = '999';
+    info.style.background = 'rgba(0,0,0,0.95)';
+    info.style.color = '#ffffff';
+    info.style.fontWeight = 'bold';
+    info.style.padding = '10px 16px';
+    info.style.borderRadius = '8px';
+    info.style.fontSize = '15px';
+    info.style.fontFamily = "'Segoe UI', sans-serif";
+    info.style.boxShadow = '0 0 8px #000';
+    info.style.maxWidth = '90vw';
+    info.style.textAlign = 'center';
+    info.innerHTML = output.innerHTML.replace(/\n/g, '<br>');
+    document.body.appendChild(info);
+
+    try {
+        const canvas = await html2canvas(document.body, {
+            x: 0,
+            y: 0,
+            width: window.innerWidth,
+            height: window.innerHeight,
+            useCORS: true,
+            backgroundColor: '#000'
+        });
+
+        const a = document.createElement('a');
+        a.href = canvas.toDataURL('image/png');
+        a.download = 'delivery-summary.png';
+        a.click();
+    } finally {
+        document.body.removeChild(info);
+    }
+}
+</script>
+
 </body>
 </html>
