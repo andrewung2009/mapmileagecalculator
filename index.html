@@ -60,7 +60,32 @@
         border-radius: 5px;
         background: rgba(0,0,0,0.6);
         color: #00f7ff;
+        transition: all 0.3s ease;
     }
+    /* Style for when the input field is focused */
+    input:focus {
+        outline: none;
+        border-color: #00ffff;
+        box-shadow: 0 0 10px #00ffff;
+    }
+    /* Updated styles for the typing section */
+    input {
+        background: rgba(0, 0, 0, 0.7);
+        border: 2px solid #00f7ff;
+        border-radius: 8px;
+        padding: 12px;
+        font-size: 16px;
+        color: #00ffff;
+        transition: box-shadow 0.3s ease-in-out;
+    }
+    input:focus {
+        box-shadow: 0 0 15px #00ffff, inset 0 0 10px #00ffff;
+    }
+    /* Change placeholder color */
+    ::placeholder {
+        color: rgba(0, 247, 255, 0.5);
+    }
+    
     button {
         padding: 10px;
         width: 100%;
@@ -165,9 +190,12 @@ function autocomplete(inputId, listId) {
         list.innerHTML = '';
         data.features.forEach(f => {
             const name = f.properties.name || '';
+            const street = f.properties.street || '';
+            const postcode = f.properties.postcode || '';
             const city = f.properties.city || '';
             const state = f.properties.state || '';
-            const displayName = `${name}, ${city}, ${state}`;
+            const displayName = [name, street, postcode, city, state].filter(Boolean).join(', ');
+            
             const div = document.createElement('div');
             div.classList.add('autocomplete-suggestion');
             div.textContent = displayName;
@@ -226,44 +254,74 @@ addWaypointBtn.addEventListener('click', () => {
 });
 
 async function calculateRoute() {
+    const calculateBtn = document.querySelector('button[onclick="calculateRoute()"]');
+    const output = document.getElementById('output');
+    output.style.color = '#00f7ff';
+    output.innerHTML = '';
+
+    const originalBtnText = calculateBtn.innerText;
+    calculateBtn.innerText = 'Calculating...';
+    calculateBtn.disabled = true;
+
     if (!startCoords) {
-        alert("Please select a start location from suggestions.");
+        output.style.color = 'red';
+        output.innerHTML = "Please select a start location from the suggestions.";
+        calculateBtn.innerText = originalBtnText;
+        calculateBtn.disabled = false;
         return;
     }
     if (!endCoords) {
-        alert("Please select an end location from suggestions.");
+        output.style.color = 'red';
+        output.innerHTML = "Please select a destination from the suggestions.";
+        calculateBtn.innerText = originalBtnText;
+        calculateBtn.disabled = false;
         return;
     }
     for (let i = 0; i < waypointCoords.length; i++) {
         if (waypointCoords[i] === null) {
-            alert(`Please select Location ${i + 1} from suggestions or remove it.`);
-            return;
+            output.style.color = 'red';
+            output.innerHTML = `Please select Location ${i + 1} from suggestions or remove it.`;
+            calculateBtn.innerText = originalBtnText;
         }
     }
 
-    const allCoords = [startCoords, ...waypointCoords, endCoords];
-    const coordStr = allCoords.map(c => `${c[1]},${c[0]}`).join(';');
+    try {
+        const allCoords = [startCoords, ...waypointCoords, endCoords];
+        const coordStr = allCoords.map(c => `${c[1]},${c[0]}`).join(';');
 
-    const url = `https://router.project-osrm.org/route/v1/driving/${coordStr}?overview=full&geometries=geojson&steps=false`;
-    const res = await fetch(url);
-    const data = await res.json();
-    if (data.code !== 'Ok') {
-        alert("Routing failed.");
-        return;
+        const url = `https://router.project-osrm.org/route/v1/driving/${coordStr}?overview=full&geometries=geojson&steps=false`;
+        const res = await fetch(url);
+        const data = await res.json();
+        
+        if (data.code !== 'Ok') {
+            output.style.color = 'red';
+            output.innerHTML = "Routing failed. Please check your locations.";
+            return;
+        }
+
+        const route = data.routes[0];
+        const distanceKm = route.distance / 1000;
+        const durationMinutes = route.duration / 60;
+
+        let earnings = 0;
+        if (distanceKm <= 15) earnings = 10;
+        else earnings = distanceKm * 0.5;
+
+        output.innerHTML =
+            `Distance: ${distanceKm.toFixed(2)} km<br>
+             Est. Time: ${durationMinutes.toFixed(0)} mins<br>
+             Earnings: RM ${earnings.toFixed(2)}`;
+
+        if (routeLayer) map.removeLayer(routeLayer);
+        routeLayer = L.geoJSON(route.geometry, { color: '#EE422E' }).addTo(map);
+        map.fitBounds(routeLayer.getBounds());
+    } catch (error) {
+        output.style.color = 'red';
+        output.innerHTML = "A network error occurred. Please try again.";
+    } finally {
+        calculateBtn.innerText = originalBtnText;
+        calculateBtn.disabled = false;
     }
-    const route = data.routes[0];
-    const distanceKm = route.distance / 1000;
-
-    let earnings = 0;
-    if (distanceKm <= 15) earnings = 10;
-    else earnings = distanceKm * 0.5;
-
-    document.getElementById('output').innerHTML =
-        `Distance: ${distanceKm.toFixed(2)} km<br>Earnings: RM ${earnings.toFixed(2)}`;
-
-    if (routeLayer) map.removeLayer(routeLayer);
-    routeLayer = L.geoJSON(route.geometry, { color: '#EE422E' }).addTo(map);
-    map.fitBounds(routeLayer.getBounds());
 }
 
 function togglePanel() {
@@ -277,46 +335,27 @@ function togglePanel() {
 async function downloadSummary() {
     const output = document.getElementById('output');
     if (!output.innerText.trim()) {
-        alert('Please calculate a route first.');
+        output.style.color = 'red';
+        output.innerHTML = "Please calculate a route first.";
+        setTimeout(() => {
+            output.innerHTML = '';
+            output.style.color = '#00f7ff';
+        }, 3000);
         return;
     }
 
-    const info = document.createElement('div');
-    info.id = 'capture-banner';
-    info.style.position = 'absolute';
-    info.style.top = '10px';
-    info.style.left = '50%';
-    info.style.transform = 'translateX(-50%)';
-    info.style.zIndex = '999';
-    info.style.background = 'rgba(0,0,0,0.95)';
-    info.style.color = '#ffffff';
-    info.style.fontWeight = 'bold';
-    info.style.padding = '10px 16px';
-    info.style.borderRadius = '8px';
-    info.style.fontSize = '15px';
-    info.style.fontFamily = "'Segoe UI', sans-serif";
-    info.style.boxShadow = '0 0 8px #000';
-    info.style.maxWidth = '90vw';
-    info.style.textAlign = 'center';
-    info.innerHTML = output.innerHTML.replace(/\n/g, '<br>');
-    document.body.appendChild(info);
-
     try {
         const canvas = await html2canvas(document.body, {
-            x: 0,
-            y: 0,
-            width: window.innerWidth,
-            height: window.innerHeight,
-            useCORS: true,
-            backgroundColor: '#000'
+            useCORS: true
         });
 
         const a = document.createElement('a');
         a.href = canvas.toDataURL('image/png');
         a.download = 'delivery-summary.png';
         a.click();
-    } finally {
-        document.body.removeChild(info);
+    } catch (error) {
+        // Handle potential errors during screenshot
+        console.error("Error capturing canvas:", error);
     }
 }
 </script>
