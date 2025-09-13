@@ -275,7 +275,7 @@
         }
     }
     
-    /* Summary image container - for generating the screenshot */
+    /* Screenshot container - styled to match the example images */
     #screenshotContainer {
         position: absolute;
         top: -9999px;
@@ -285,6 +285,7 @@
         border-radius: 8px;
         overflow: hidden;
         box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+        font-family: 'Inter', sans-serif;
     }
     
     #screenshotTitle {
@@ -299,6 +300,7 @@
         height: 400px;
         width: 100%;
         background: #0f172a;
+        position: relative;
     }
     
     #screenshotInfo {
@@ -306,6 +308,58 @@
         font-size: 18px;
         text-align: center;
         background: #0f172a;
+        line-height: 1.6;
+    }
+    
+    #screenshotButtons {
+        display: flex;
+        justify-content: center;
+        gap: 12px;
+        padding: 20px;
+        background: #1e293b;
+    }
+    
+    #screenshotButtons button {
+        width: auto;
+        padding: 10px 20px;
+        background: #00a8cc;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 500;
+        font-size: 15px;
+    }
+    
+    #screenshotButtons button:hover {
+        background: #0086a8;
+    }
+    
+    /* Ensure map controls are visible in the screenshot */
+    .leaflet-control-zoom {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        z-index: 1000;
+    }
+    
+    .leaflet-control-zoom a {
+        background-color: #fff;
+        color: #000;
+        width: 30px;
+        height: 30px;
+        line-height: 30px;
+        font-size: 18px;
+        text-align: center;
+        text-decoration: none;
+        display: block;
+        border-radius: 4px;
+        border: 1px solid #ccc;
+        margin-bottom: 5px;
+    }
+    
+    .leaflet-control-zoom a:hover {
+        background-color: #f4f4f4;
     }
 </style>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -351,6 +405,10 @@
     <div id="screenshotTitle">Delivery Summary</div>
     <div id="screenshotMap"></div>
     <div id="screenshotInfo"></div>
+    <div id="screenshotButtons">
+        <button>Download as Image</button>
+        <button>Close</button>
+    </div>
 </div>
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
@@ -611,6 +669,11 @@ async function downloadSummaryImage() {
         
         const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(screenshotMapInstance);
+        
+        // Add zoom controls to the screenshot map
+        L.control.zoom({
+            position: 'topright'
         }).addTo(screenshotMapInstance);
         
         if (routeData && routeLayer) {
