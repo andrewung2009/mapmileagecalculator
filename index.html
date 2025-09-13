@@ -185,6 +185,20 @@
         width: auto;
         padding: 10px 20px;
     }
+    .loading-spinner {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 3px solid rgba(0, 247, 255, 0.3);
+        border-radius: 50%;
+        border-top-color: #00f7ff;
+        animation: spin 1s ease-in-out infinite;
+        margin-right: 10px;
+        vertical-align: middle;
+    }
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
 </style>
 </head>
 <body>
@@ -220,7 +234,7 @@
     <div id="summaryMap"></div>
     <div id="summaryInfo" class="summary-info"></div>
     <div class="modal-buttons">
-        <button onclick="downloadSummaryImage()">📥 Download as Image</button>
+        <button id="downloadSummaryBtn" onclick="downloadSummaryImage()">📥 Download as Image</button>
         <button onclick="closeSummaryModal()">Close</button>
     </div>
   </div>
@@ -377,6 +391,7 @@ function togglePanel() {
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script>
 let summaryMapInstance = null;
+let mapReady = false;
 
 function showSummaryModal() {
     const output = document.getElementById('output');
@@ -398,6 +413,14 @@ function showSummaryModal() {
     const summaryInfo = document.getElementById('summaryInfo');
     summaryInfo.innerHTML = output.innerHTML;
     
+    // Reset map ready flag
+    mapReady = false;
+    
+    // Disable download button and show loading
+    const downloadBtn = document.getElementById('downloadSummaryBtn');
+    downloadBtn.disabled = true;
+    downloadBtn.innerHTML = '<span class="loading-spinner"></span>Preparing map...';
+    
     // Initialize the summary map
     setTimeout(() => {
         if (summaryMapInstance) {
@@ -408,7 +431,9 @@ function showSummaryModal() {
         const zoom = map.getZoom();
         
         summaryMapInstance = L.map('summaryMap').setView([center.lat, center.lng], zoom);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        
+        // Create tile layer with event listener for when all tiles are loaded
+        const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; OpenStreetMap contributors'
         }).addTo(summaryMapInstance);
         
@@ -422,6 +447,16 @@ function showSummaryModal() {
         setTimeout(() => {
             summaryMapInstance.invalidateSize();
         }, 100);
+        
+        // Listen for when all tiles are loaded
+        tileLayer.on('load', function() {
+            // Add a small delay to ensure rendering is complete
+            setTimeout(() => {
+                mapReady = true;
+                downloadBtn.disabled = false;
+                downloadBtn.innerHTML = '📥 Download as Image';
+            }, 500);
+        });
     }, 100);
 }
 
@@ -431,6 +466,11 @@ function closeSummaryModal() {
 }
 
 async function downloadSummaryImage() {
+    if (!mapReady) {
+        alert('Please wait for the map to fully load before downloading.');
+        return;
+    }
+    
     try {
         // Get the modal content
         const modalContent = document.querySelector('.modal-content');
@@ -439,8 +479,9 @@ async function downloadSummaryImage() {
         const canvas = await html2canvas(modalContent, {
             useCORS: true,
             allowTaint: true,
-            scale: 1,
-            logging: false
+            scale: 2, // Higher resolution
+            logging: false,
+            backgroundColor: '#000000'
         });
         
         // Convert canvas to data URL and trigger download
