@@ -14,6 +14,7 @@
         --text-primary: #f1f5f9;
         --text-secondary: #94a3b8;
         --border-color: #334155;
+        --error-color: #ef4444;
     }
     
     * {
@@ -273,6 +274,44 @@
             height: 300px;
         }
     }
+    
+    /* Summary image container */
+    #summaryImageContainer {
+        display: none;
+        position: absolute;
+        top: -9999px;
+        left: -9999px;
+        width: 800px;
+        background: var(--surface);
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+    }
+    
+    #summaryImageTitle {
+        color: var(--text-primary);
+        text-align: center;
+        margin-bottom: 20px;
+        font-size: 24px;
+        font-weight: 600;
+    }
+    
+    #summaryImageMap {
+        height: 400px;
+        width: 100%;
+        border-radius: 6px;
+        margin-bottom: 20px;
+        border: 1px solid var(--border-color);
+    }
+    
+    #summaryImageInfo {
+        background: var(--background);
+        padding: 16px;
+        border-radius: 6px;
+        font-size: 18px;
+        line-height: 1.6;
+        text-align: center;
+    }
 </style>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 </head>
@@ -314,7 +353,15 @@
   </div>
 </div>
 
+<!-- Hidden container for generating summary image -->
+<div id="summaryImageContainer">
+    <div id="summaryImageTitle">Delivery Summary</div>
+    <div id="summaryImageMap"></div>
+    <div id="summaryImageInfo"></div>
+</div>
+
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script>
 let map = L.map('map').setView([1.5533, 110.3592], 8);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -403,14 +450,14 @@ async function calculateRoute() {
     calculateBtn.disabled = true;
     
     if (!startCoords) {
-        output.style.color = '#ef4444';
+        output.style.color = 'var(--error-color)';
         output.innerHTML = "Please select a start location.";
         calculateBtn.innerText = originalBtnText;
         calculateBtn.disabled = false;
         return;
     }
     if (!endCoords) {
-        output.style.color = '#ef4444';
+        output.style.color = 'var(--error-color)';
         output.innerHTML = "Please select a destination.";
         calculateBtn.innerText = originalBtnText;
         calculateBtn.disabled = false;
@@ -418,7 +465,7 @@ async function calculateRoute() {
     }
     for (let i = 0; i < waypointCoords.length; i++) {
         if (waypointCoords[i] === null) {
-            output.style.color = '#ef4444';
+            output.style.color = 'var(--error-color)';
             output.innerHTML = `Please select Location ${i + 1} or remove it.`;
             calculateBtn.innerText = originalBtnText;
             calculateBtn.disabled = false;
@@ -434,7 +481,7 @@ async function calculateRoute() {
         const data = await res.json();
         
         if (data.code !== 'Ok') {
-            output.style.color = '#ef4444';
+            output.style.color = 'var(--error-color)';
             output.innerHTML = "Routing failed. Please check your locations.";
             calculateBtn.innerText = originalBtnText;
             calculateBtn.disabled = false;
@@ -468,7 +515,7 @@ async function calculateRoute() {
         routeLayer = L.geoJSON(route.geometry, { color: '#ef4444', weight: 4 }).addTo(map);
         map.fitBounds(routeLayer.getBounds());
     } catch (error) {
-        output.style.color = '#ef4444';
+        output.style.color = 'var(--error-color)';
         output.innerHTML = "Network error. Please try again.";
     } finally {
         calculateBtn.innerText = originalBtnText;
@@ -480,15 +527,15 @@ function togglePanel() {
     panel.style.display = (panel.style.display === 'none') ? 'block' : 'none';
 }
 </script>
-<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script>
 let summaryMapInstance = null;
 let mapReady = false;
+let summaryImageMapInstance = null;
 
 function showSummaryModal() {
     const output = document.getElementById('output');
     if (!output.innerText.trim()) {
-        output.style.color = '#ef4444';
+        output.style.color = 'var(--error-color)';
         output.innerHTML = "Please calculate a route first.";
         setTimeout(() => {
             output.innerHTML = '';
@@ -553,24 +600,101 @@ async function downloadSummaryImage() {
     }
     
     try {
-        const modalContent = document.querySelector('.modal-content');
+        // Show a loading message
+        const downloadBtn = document.getElementById('downloadSummaryBtn');
+        downloadBtn.disabled = true;
+        downloadBtn.innerHTML = '<span class="loading-spinner"></span>Generating image...';
         
-        const canvas = await html2canvas(modalContent, {
-            useCORS: true,
-            allowTaint: true,
-            scale: 2,
-            logging: false,
-            backgroundColor: '#1e293b'
-        });
+        // Get the summary container
+        const summaryContainer = document.getElementById('summaryImageContainer');
+        const summaryInfo = document.getElementById('summaryInfo');
         
-        const a = document.createElement('a');
-        a.href = canvas.toDataURL('image/png');
-        a.download = 'delivery-summary.png';
-        a.click();
+        // Copy the summary info to the hidden container
+        document.getElementById('summaryImageInfo').innerHTML = summaryInfo.innerHTML;
+        
+        // Initialize the map for the image
+        setTimeout(() => {
+            if (summaryImageMapInstance) {
+                summaryImageMapInstance.remove();
+            }
+            
+            const center = map.getCenter();
+            const zoom = map.getZoom();
+            
+            summaryImageMapInstance = L.map('summaryImageMap').setView([center.lat, center.lng], zoom);
+            
+            const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(summaryImageMapInstance);
+            
+            if (routeData && routeLayer) {
+                L.geoJSON(routeData.geometry, { color: '#ef4444', weight: 4 }).addTo(summaryImageMapInstance);
+                summaryImageMapInstance.fitBounds(routeLayer.getBounds());
+            }
+            
+            // Wait for the map to load
+            tileLayer.on('load', function() {
+                setTimeout(async () => {
+                    try {
+                        // Make the container visible temporarily
+                        summaryContainer.style.display = 'block';
+                        summaryContainer.style.position = 'relative';
+                        summaryContainer.style.top = '0';
+                        summaryContainer.style.left = '0';
+                        
+                        // Capture the container
+                        const canvas = await html2canvas(summaryContainer, {
+                            useCORS: true,
+                            allowTaint: true,
+                            scale: 2,
+                            logging: false,
+                            backgroundColor: '#1e293b'
+                        });
+                        
+                        // Hide the container again
+                        summaryContainer.style.display = 'none';
+                        summaryContainer.style.position = 'absolute';
+                        summaryContainer.style.top = '-9999px';
+                        summaryContainer.style.left = '-9999px';
+                        
+                        // Convert to data URL and download
+                        const a = document.createElement('a');
+                        a.href = canvas.toDataURL('image/png');
+                        a.download = 'delivery-summary.png';
+                        a.click();
+                        
+                        // Reset the button
+                        downloadBtn.disabled = false;
+                        downloadBtn.innerHTML = 'Download as Image';
+                    } catch (error) {
+                        console.error("Error capturing canvas:", error);
+                        summaryContainer.style.display = 'none';
+                        summaryContainer.style.position = 'absolute';
+                        summaryContainer.style.top = '-9999px';
+                        summaryContainer.style.left = '-9999px';
+                        
+                        downloadBtn.disabled = false;
+                        downloadBtn.innerHTML = 'Download as Image';
+                        
+                        const output = document.getElementById('output');
+                        output.style.color = 'var(--error-color)';
+                        output.innerHTML = "Error generating summary. Please try again.";
+                        setTimeout(() => {
+                            output.innerHTML = '';
+                            output.style.color = 'var(--text-primary)';
+                        }, 3000);
+                    }
+                }, 1000);
+            });
+        }, 100);
     } catch (error) {
-        console.error("Error capturing canvas:", error);
+        console.error("Error in download process:", error);
+        const downloadBtn = document.getElementById('downloadSummaryBtn');
+        downloadBtn.disabled = false;
+        downloadBtn.innerHTML = 'Download as Image';
+        
         const output = document.getElementById('output');
-        output.style.color = '#ef4444';
+        output.style.color = 'var(--error-color)';
         output.innerHTML = "Error generating summary. Please try again.";
         setTimeout(() => {
             output.innerHTML = '';
