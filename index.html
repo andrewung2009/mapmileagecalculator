@@ -2,136 +2,175 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>Futuristic Delivery Planner</title>
+<title>Delivery Planner</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
 <style>
-    body {
-        margin: 0;
-        background: black;
-        font-family: 'Segoe UI', sans-serif;
-        color: white;
+    :root {
+        --primary-color: #00a8cc;
+        --secondary-color: #0c4a6e;
+        --background: #0f172a;
+        --surface: #1e293b;
+        --text-primary: #f1f5f9;
+        --text-secondary: #94a3b8;
+        --border-color: #334155;
     }
+    
+    * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+    }
+    
+    body {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background-color: var(--background);
+        color: var(--text-primary);
+        line-height: 1.6;
+        overflow: hidden;
+    }
+    
     #map {
         height: 100vh;
         width: 100%;
-        z-index: 0; /* keep map behind panel */
+        z-index: 0;
     }
+    
     .control-panel {
         position: absolute;
-        bottom: 80px;
+        bottom: 20px;
         right: 20px;
-        background: rgba(20, 20, 20, 0.85);
-        border-radius: 12px;
-        padding: 15px;
+        background: var(--surface);
+        border-radius: 8px;
+        padding: 20px;
         width: 320px;
-        box-shadow: 0 0 15px #00f7ff;
-        border: 1px solid #00f7ff;
-        backdrop-filter: blur(10px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
         z-index: 1001;
         transition: all 0.3s ease;
         max-height: 90vh;
         overflow-y: auto;
+        border: 1px solid var(--border-color);
     }
+    
+    .control-panel h3 {
+        font-size: 18px;
+        font-weight: 600;
+        margin-bottom: 16px;
+        color: var(--text-primary);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
     .toggle-btn {
         position: absolute;
         bottom: 20px;
         right: 20px;
-        background: #00f7ff;
+        background: var(--primary-color);
         border: none;
         border-radius: 50%;
-        width: 50px;
-        height: 50px;
-        color: #000;
-        font-size: 24px;
+        width: 48px;
+        height: 48px;
+        color: white;
+        font-size: 20px;
         cursor: pointer;
-        box-shadow: 0 0 15px #00f7ff;
         z-index: 1002;
-        transition: transform 0.3s ease;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
     }
+    
     .toggle-btn:hover {
-        transform: scale(1.1);
+        background: #0086a8;
+        transform: scale(1.05);
     }
+    
     input {
-        width: calc(100% - 20px);
-        padding: 8px;
-        margin-bottom: 5px;
-        border: 1px solid #00f7ff;
-        border-radius: 5px;
-        background: rgba(0,0,0,0.6);
-        color: #00f7ff;
-        transition: all 0.3s ease;
+        width: 100%;
+        padding: 12px 14px;
+        margin-bottom: 12px;
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        background: var(--background);
+        color: var(--text-primary);
+        font-size: 15px;
+        transition: all 0.2s ease;
     }
-    /* Style for when the input field is focused */
+    
     input:focus {
         outline: none;
-        border-color: #00ffff;
-        box-shadow: 0 0 10px #00ffff;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 3px rgba(0, 168, 204, 0.1);
     }
-    /* Updated styles for the typing section */
-    input {
-        background: rgba(0, 0, 0, 0.7);
-        border: 2px solid #00f7ff;
-        border-radius: 8px;
-        padding: 12px;
-        font-size: 16px;
-        color: #00ffff;
-        transition: box-shadow 0.3s ease-in-out;
-    }
-    input:focus {
-        box-shadow: 0 0 15px #00ffff, inset 0 0 10px #00ffff;
-    }
-    /* Change placeholder color */
+    
     ::placeholder {
-        color: rgba(0, 247, 255, 0.5);
+        color: var(--text-secondary);
     }
     
     button {
-        padding: 10px;
+        padding: 12px 16px;
         width: 100%;
-        background: #00f7ff;
-        color: black;
+        background: var(--primary-color);
+        color: white;
         border: none;
         cursor: pointer;
-        border-radius: 5px;
-        font-weight: bold;
-        margin-top: 5px;
+        border-radius: 6px;
+        font-weight: 500;
+        font-size: 15px;
+        margin-top: 8px;
+        transition: all 0.2s ease;
     }
+    
     button:hover {
-        background: #00c4cc;
+        background: #0086a8;
     }
+    
+    button:disabled {
+        background: var(--text-secondary);
+        cursor: not-allowed;
+    }
+    
     .autocomplete-list {
         position: absolute;
-        background: rgba(10, 10, 10, 0.85);
-        border: 1px solid #00f7ff;
-        border-radius: 8px;
-        box-shadow: 0 0 10px #00f7ff;
-        backdrop-filter: blur(6px);
-        max-height: 150px;
+        background: var(--surface);
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        max-height: 180px;
         overflow-y: auto;
         z-index: 2000;
-        width: calc(100% - 20px);
-        margin-top: 2px;
-        animation: fadeIn 0.2s ease-in-out;
+        width: 100%;
+        margin-top: 4px;
     }
+    
     .autocomplete-suggestion {
-        padding: 8px 10px;
+        padding: 10px 14px;
         cursor: pointer;
-        color: #00f7ff;
+        color: var(--text-primary);
         font-size: 14px;
         transition: background 0.2s ease;
     }
+    
     .autocomplete-suggestion:hover {
-        background: rgba(0, 247, 255, 0.2);
+        background: rgba(0, 168, 204, 0.1);
     }
+    
     .input-group {
         position: relative;
+        margin-bottom: 16px;
     }
-    @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(-5px); }
-        to { opacity: 1; transform: translateY(0); }
+    
+    #output {
+        margin-top: 16px;
+        padding: 12px;
+        background: var(--background);
+        border-radius: 6px;
+        font-size: 15px;
+        line-height: 1.5;
     }
-    /* Modal styling for the summary */
+    
+    /* Modal styling */
     .modal {
         display: none;
         position: fixed;
@@ -140,73 +179,109 @@
         top: 0;
         width: 100%;
         height: 100%;
-        background-color: rgba(0,0,0,0.8);
+        background-color: rgba(15, 23, 42, 0.85);
         overflow: auto;
+        backdrop-filter: blur(4px);
     }
+    
     .modal-content {
-        background-color: black;
-        margin: 5% auto;
-        padding: 20px;
-        border: 1px solid #00f7ff;
-        border-radius: 12px;
-        width: 80%;
-        max-width: 800px;
-        box-shadow: 0 0 20px #00f7ff;
+        background: var(--surface);
+        margin: 40px auto;
+        padding: 24px;
+        border-radius: 8px;
+        width: 90%;
+        max-width: 700px;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+        border: 1px solid var(--border-color);
     }
+    
     .close {
-        color: #00f7ff;
+        color: var(--text-secondary);
         float: right;
-        font-size: 28px;
-        font-weight: bold;
+        font-size: 24px;
+        font-weight: 400;
         cursor: pointer;
+        line-height: 1;
     }
+    
     .close:hover {
-        color: #00ffff;
+        color: var(--text-primary);
     }
+    
     #summaryMap {
         height: 400px;
         width: 100%;
-        border: 1px solid #00f7ff;
-        border-radius: 8px;
-        margin: 15px 0;
+        border-radius: 6px;
+        margin: 20px 0;
+        border: 1px solid var(--border-color);
     }
+    
     .summary-info {
         text-align: center;
-        font-size: 18px;
-        margin: 15px 0;
+        font-size: 16px;
+        margin: 20px 0;
+        padding: 16px;
+        background: var(--background);
+        border-radius: 6px;
+        line-height: 1.6;
     }
+    
     .modal-buttons {
         display: flex;
         justify-content: center;
-        gap: 10px;
-        margin-top: 15px;
+        gap: 12px;
+        margin-top: 20px;
     }
+    
     .modal-buttons button {
         width: auto;
         padding: 10px 20px;
     }
+    
     .loading-spinner {
         display: inline-block;
-        width: 20px;
-        height: 20px;
-        border: 3px solid rgba(0, 247, 255, 0.3);
+        width: 16px;
+        height: 16px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
         border-radius: 50%;
-        border-top-color: #00f7ff;
+        border-top-color: white;
         animation: spin 1s ease-in-out infinite;
-        margin-right: 10px;
+        margin-right: 8px;
         vertical-align: middle;
     }
+    
     @keyframes spin {
         to { transform: rotate(360deg); }
     }
+    
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        .control-panel {
+            width: 280px;
+            padding: 16px;
+            bottom: 10px;
+            right: 10px;
+        }
+        
+        .modal-content {
+            width: 95%;
+            margin: 20px auto;
+            padding: 16px;
+        }
+        
+        #summaryMap {
+            height: 300px;
+        }
+    }
 </style>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 </head>
 <body>
 <div id="map"></div>
 <div class="control-panel" id="planner">
-    <h3>🚚 Delivery Planner</h3>
-    <div class="input-group" style="margin-bottom:10px;">
-        <input type="text" id="start" placeholder="Enter Start Location">
+    <h3>Delivery Planner</h3>
+    <div class="input-group">
+        <input type="text" id="start" placeholder="Start location">
         <div id="startList" class="autocomplete-list"></div>
     </div>
     
@@ -214,15 +289,14 @@
     
     <button id="addWaypointBtn" type="button">+ Add Location</button>
     
-    <div class="input-group" style="margin-top:10px;">
-        <input type="text" id="end" placeholder="Enter Destination">
+    <div class="input-group" style="margin-top:16px;">
+        <input type="text" id="end" placeholder="Destination">
         <div id="endList" class="autocomplete-list"></div>
     </div>
     
-    <button onclick="calculateRoute()">Calculate</button>
-    <p id="output"></p>
-    <!-- DOWNLOAD BUTTON -->
-    <button id="downloadBtn" onclick="showSummaryModal()" style="margin-top:8px;">📥 Download Summary</button>
+    <button onclick="calculateRoute()">Calculate Route</button>
+    <div id="output"></div>
+    <button id="downloadBtn" onclick="showSummaryModal()" style="margin-top:16px;">Download Summary</button>
 </div>
 <button class="toggle-btn" onclick="togglePanel()">☰</button>
 
@@ -230,11 +304,11 @@
 <div id="summaryModal" class="modal">
   <div class="modal-content">
     <span class="close" onclick="closeSummaryModal()">&times;</span>
-    <h2 style="color: #00f7ff; text-align: center;">Delivery Summary</h2>
+    <h2 style="color: var(--text-primary); text-align: center; margin-bottom: 20px;">Delivery Summary</h2>
     <div id="summaryMap"></div>
     <div id="summaryInfo" class="summary-info"></div>
     <div class="modal-buttons">
-        <button id="downloadSummaryBtn" onclick="downloadSummaryImage()">📥 Download as Image</button>
+        <button id="downloadSummaryBtn" onclick="downloadSummaryImage()">Download as Image</button>
         <button onclick="closeSummaryModal()">Close</button>
     </div>
   </div>
@@ -250,7 +324,8 @@ let startCoords = null;
 let endCoords = null;
 let waypointCoords = [];
 let routeLayer = null;
-let routeData = null; // Store route data for summary
+let routeData = null;
+
 function autocomplete(inputId, listId) {
     const input = document.getElementById(inputId);
     const list = document.getElementById(listId);
@@ -301,11 +376,9 @@ function addWaypointInput() {
     const idx = waypointCoords.length;
     const wrapper = document.createElement('div');
     wrapper.className = 'input-group';
-    wrapper.style.marginBottom = '10px';
-    wrapper.style.position = 'relative';
     const input = document.createElement('input');
     input.type = 'text';
-    input.placeholder = `Enter Location ${idx + 1}`;
+    input.placeholder = `Location ${idx + 1}`;
     input.id = `waypoint-${idx}`;
     input.autocomplete = 'off';
     const list = document.createElement('div');
@@ -323,32 +396,36 @@ addWaypointBtn.addEventListener('click', () => {
 async function calculateRoute() {
     const calculateBtn = document.querySelector('button[onclick="calculateRoute()"]');
     const output = document.getElementById('output');
-    output.style.color = '#00f7ff';
+    output.style.color = 'var(--text-primary)';
     output.innerHTML = '';
     const originalBtnText = calculateBtn.innerText;
     calculateBtn.innerText = 'Calculating...';
     calculateBtn.disabled = true;
+    
     if (!startCoords) {
-        output.style.color = 'red';
-        output.innerHTML = "Please select a start location from the suggestions.";
+        output.style.color = '#ef4444';
+        output.innerHTML = "Please select a start location.";
         calculateBtn.innerText = originalBtnText;
         calculateBtn.disabled = false;
         return;
     }
     if (!endCoords) {
-        output.style.color = 'red';
-        output.innerHTML = "Please select a destination from the suggestions.";
+        output.style.color = '#ef4444';
+        output.innerHTML = "Please select a destination.";
         calculateBtn.innerText = originalBtnText;
         calculateBtn.disabled = false;
         return;
     }
     for (let i = 0; i < waypointCoords.length; i++) {
         if (waypointCoords[i] === null) {
-            output.style.color = 'red';
-            output.innerHTML = `Please select Location ${i + 1} from suggestions or remove it.`;
+            output.style.color = '#ef4444';
+            output.innerHTML = `Please select Location ${i + 1} or remove it.`;
             calculateBtn.innerText = originalBtnText;
+            calculateBtn.disabled = false;
+            return;
         }
     }
+    
     try {
         const allCoords = [startCoords, ...waypointCoords, endCoords];
         const coordStr = allCoords.map(c => `${c[1]},${c[0]}`).join(';');
@@ -357,27 +434,42 @@ async function calculateRoute() {
         const data = await res.json();
         
         if (data.code !== 'Ok') {
-            output.style.color = 'red';
+            output.style.color = '#ef4444';
             output.innerHTML = "Routing failed. Please check your locations.";
+            calculateBtn.innerText = originalBtnText;
+            calculateBtn.disabled = false;
             return;
         }
+        
         const route = data.routes[0];
-        routeData = route; // Store route data for summary
+        routeData = route;
         const distanceKm = route.distance / 1000;
         const durationMinutes = route.duration / 60;
         let earnings = 0;
         if (distanceKm <= 15) earnings = 10;
         else earnings = distanceKm * 0.5;
-        output.innerHTML =
-            `Distance: ${distanceKm.toFixed(2)} km<br>
-             Est. Time: ${durationMinutes.toFixed(0)} mins<br>
-             Earnings: RM ${earnings.toFixed(2)}`;
+        
+        output.innerHTML = `
+            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                <span>Distance:</span>
+                <span style="font-weight: 500;">${distanceKm.toFixed(2)} km</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                <span>Est. Time:</span>
+                <span style="font-weight: 500;">${durationMinutes.toFixed(0)} mins</span>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+                <span>Earnings:</span>
+                <span style="font-weight: 500;">RM ${earnings.toFixed(2)}</span>
+            </div>
+        `;
+        
         if (routeLayer) map.removeLayer(routeLayer);
-        routeLayer = L.geoJSON(route.geometry, { color: '#EE422E' }).addTo(map);
+        routeLayer = L.geoJSON(route.geometry, { color: '#ef4444', weight: 4 }).addTo(map);
         map.fitBounds(routeLayer.getBounds());
     } catch (error) {
-        output.style.color = 'red';
-        output.innerHTML = "A network error occurred. Please try again.";
+        output.style.color = '#ef4444';
+        output.innerHTML = "Network error. Please try again.";
     } finally {
         calculateBtn.innerText = originalBtnText;
         calculateBtn.disabled = false;
@@ -396,32 +488,26 @@ let mapReady = false;
 function showSummaryModal() {
     const output = document.getElementById('output');
     if (!output.innerText.trim()) {
-        output.style.color = 'red';
+        output.style.color = '#ef4444';
         output.innerHTML = "Please calculate a route first.";
         setTimeout(() => {
             output.innerHTML = '';
-            output.style.color = '#00f7ff';
+            output.style.color = 'var(--text-primary)';
         }, 3000);
         return;
     }
     
-    // Show the modal
     const modal = document.getElementById('summaryModal');
     modal.style.display = 'block';
     
-    // Copy the output information to the summary info div
     const summaryInfo = document.getElementById('summaryInfo');
     summaryInfo.innerHTML = output.innerHTML;
     
-    // Reset map ready flag
     mapReady = false;
-    
-    // Disable download button and show loading
     const downloadBtn = document.getElementById('downloadSummaryBtn');
     downloadBtn.disabled = true;
     downloadBtn.innerHTML = '<span class="loading-spinner"></span>Preparing map...';
     
-    // Initialize the summary map
     setTimeout(() => {
         if (summaryMapInstance) {
             summaryMapInstance.remove();
@@ -432,29 +518,24 @@ function showSummaryModal() {
         
         summaryMapInstance = L.map('summaryMap').setView([center.lat, center.lng], zoom);
         
-        // Create tile layer with event listener for when all tiles are loaded
         const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; OpenStreetMap contributors'
         }).addTo(summaryMapInstance);
         
-        // Add the route to the summary map if it exists
         if (routeData && routeLayer) {
-            L.geoJSON(routeData.geometry, { color: '#EE422E' }).addTo(summaryMapInstance);
+            L.geoJSON(routeData.geometry, { color: '#ef4444', weight: 4 }).addTo(summaryMapInstance);
             summaryMapInstance.fitBounds(routeLayer.getBounds());
         }
         
-        // Force the map to update
         setTimeout(() => {
             summaryMapInstance.invalidateSize();
         }, 100);
         
-        // Listen for when all tiles are loaded
         tileLayer.on('load', function() {
-            // Add a small delay to ensure rendering is complete
             setTimeout(() => {
                 mapReady = true;
                 downloadBtn.disabled = false;
-                downloadBtn.innerHTML = '📥 Download as Image';
+                downloadBtn.innerHTML = 'Download as Image';
             }, 500);
         });
     }, 100);
@@ -472,19 +553,16 @@ async function downloadSummaryImage() {
     }
     
     try {
-        // Get the modal content
         const modalContent = document.querySelector('.modal-content');
         
-        // Use html2canvas to capture the modal content
         const canvas = await html2canvas(modalContent, {
             useCORS: true,
             allowTaint: true,
-            scale: 2, // Higher resolution
+            scale: 2,
             logging: false,
-            backgroundColor: '#000000'
+            backgroundColor: '#1e293b'
         });
         
-        // Convert canvas to data URL and trigger download
         const a = document.createElement('a');
         a.href = canvas.toDataURL('image/png');
         a.download = 'delivery-summary.png';
@@ -492,11 +570,11 @@ async function downloadSummaryImage() {
     } catch (error) {
         console.error("Error capturing canvas:", error);
         const output = document.getElementById('output');
-        output.style.color = 'red';
+        output.style.color = '#ef4444';
         output.innerHTML = "Error generating summary. Please try again.";
         setTimeout(() => {
             output.innerHTML = '';
-            output.style.color = '#00f7ff';
+            output.style.color = 'var(--text-primary)';
         }, 3000);
     }
 }
