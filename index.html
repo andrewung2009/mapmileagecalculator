@@ -135,7 +135,6 @@
 </head>
 <body>
 <div id="map"></div>
-
 <div class="control-panel" id="planner">
     <h3>🚚 Delivery Planner</h3>
     <div class="input-group" style="margin-bottom:10px;">
@@ -154,29 +153,23 @@
     
     <button onclick="calculateRoute()">Calculate</button>
     <p id="output"></p>
-
     <!-- DOWNLOAD BUTTON -->
     <button id="downloadBtn" onclick="downloadSummary()" style="margin-top:8px;">📥 Download Summary</button>
 </div>
-
 <button class="toggle-btn" onclick="togglePanel()">☰</button>
-
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script>
 let map = L.map('map').setView([1.5533, 110.3592], 8);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; OpenStreetMap contributors'
 }).addTo(map);
-
 let startCoords = null;
 let endCoords = null;
 let waypointCoords = [];
 let routeLayer = null;
-
 function autocomplete(inputId, listId) {
     const input = document.getElementById(inputId);
     const list = document.getElementById(listId);
-
     input.addEventListener('input', async function () {
         const query = this.value.trim();
         if (query.length < 2) {
@@ -203,7 +196,6 @@ function autocomplete(inputId, listId) {
                 input.value = displayName;
                 list.innerHTML = '';
                 input.blur();
-
                 if (inputId === 'start') {
                     startCoords = f.geometry.coordinates.slice().reverse();
                 } else if (inputId === 'end') {
@@ -217,52 +209,41 @@ function autocomplete(inputId, listId) {
         });
     });
 }
-
 autocomplete('start', 'startList');
 autocomplete('end', 'endList');
-
 const waypointsContainer = document.getElementById('waypoints-container');
 const addWaypointBtn = document.getElementById('addWaypointBtn');
-
 function addWaypointInput() {
     const idx = waypointCoords.length;
     const wrapper = document.createElement('div');
     wrapper.className = 'input-group';
     wrapper.style.marginBottom = '10px';
     wrapper.style.position = 'relative';
-
     const input = document.createElement('input');
     input.type = 'text';
     input.placeholder = `Enter Location ${idx + 1}`;
     input.id = `waypoint-${idx}`;
     input.autocomplete = 'off';
-
     const list = document.createElement('div');
     list.className = 'autocomplete-list';
     list.id = `waypointList-${idx}`;
-
     wrapper.appendChild(input);
     wrapper.appendChild(list);
     waypointsContainer.appendChild(wrapper);
-
     autocomplete(input.id, list.id);
     waypointCoords.push(null);
 }
-
 addWaypointBtn.addEventListener('click', () => {
     addWaypointInput();
 });
-
 async function calculateRoute() {
     const calculateBtn = document.querySelector('button[onclick="calculateRoute()"]');
     const output = document.getElementById('output');
     output.style.color = '#00f7ff';
     output.innerHTML = '';
-
     const originalBtnText = calculateBtn.innerText;
     calculateBtn.innerText = 'Calculating...';
     calculateBtn.disabled = true;
-
     if (!startCoords) {
         output.style.color = 'red';
         output.innerHTML = "Please select a start location from the suggestions.";
@@ -284,11 +265,9 @@ async function calculateRoute() {
             calculateBtn.innerText = originalBtnText;
         }
     }
-
     try {
         const allCoords = [startCoords, ...waypointCoords, endCoords];
         const coordStr = allCoords.map(c => `${c[1]},${c[0]}`).join(';');
-
         const url = `https://router.project-osrm.org/route/v1/driving/${coordStr}?overview=full&geometries=geojson&steps=false`;
         const res = await fetch(url);
         const data = await res.json();
@@ -298,20 +277,16 @@ async function calculateRoute() {
             output.innerHTML = "Routing failed. Please check your locations.";
             return;
         }
-
         const route = data.routes[0];
         const distanceKm = route.distance / 1000;
         const durationMinutes = route.duration / 60;
-
         let earnings = 0;
         if (distanceKm <= 15) earnings = 10;
         else earnings = distanceKm * 0.5;
-
         output.innerHTML =
             `Distance: ${distanceKm.toFixed(2)} km<br>
              Est. Time: ${durationMinutes.toFixed(0)} mins<br>
              Earnings: RM ${earnings.toFixed(2)}`;
-
         if (routeLayer) map.removeLayer(routeLayer);
         routeLayer = L.geoJSON(route.geometry, { color: '#EE422E' }).addTo(map);
         map.fitBounds(routeLayer.getBounds());
@@ -323,13 +298,11 @@ async function calculateRoute() {
         calculateBtn.disabled = false;
     }
 }
-
 function togglePanel() {
     const panel = document.getElementById('planner');
     panel.style.display = (panel.style.display === 'none') ? 'block' : 'none';
 }
 </script>
-
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script>
 async function downloadSummary() {
@@ -343,22 +316,133 @@ async function downloadSummary() {
         }, 3000);
         return;
     }
-
     try {
-        const canvas = await html2canvas(document.body, {
-            useCORS: true
-        });
-
-        const a = document.createElement('a');
-        a.href = canvas.toDataURL('image/png');
-        a.download = 'delivery-summary.png';
-        a.click();
+        // Create a temporary div to hold our summary
+        const summaryDiv = document.createElement('div');
+        summaryDiv.style.position = 'absolute';
+        summaryDiv.style.top = '-9999px';
+        summaryDiv.style.left = '-9999px';
+        summaryDiv.style.width = '800px';
+        summaryDiv.style.height = '600px';
+        summaryDiv.style.background = 'black';
+        summaryDiv.style.color = 'white';
+        summaryDiv.style.padding = '20px';
+        summaryDiv.style.boxSizing = 'border-box';
+        summaryDiv.style.fontFamily = "'Segoe UI', sans-serif";
+        document.body.appendChild(summaryDiv);
+        
+        // Create a title for the summary
+        const title = document.createElement('h2');
+        title.textContent = 'Delivery Summary';
+        title.style.color = '#00f7ff';
+        title.style.marginTop = '0';
+        title.style.textAlign = 'center';
+        summaryDiv.appendChild(title);
+        
+        // Create a map container for the summary
+        const summaryMap = document.createElement('div');
+        summaryMap.style.width = '100%';
+        summaryMap.style.height = '400px';
+        summaryMap.style.marginBottom = '20px';
+        summaryMap.style.border = '1px solid #00f7ff';
+        summaryMap.style.borderRadius = '8px';
+        summaryDiv.appendChild(summaryMap);
+        
+        // Create a div for the route information
+        const infoDiv = document.createElement('div');
+        infoDiv.innerHTML = output.innerHTML;
+        infoDiv.style.fontSize = '18px';
+        infoDiv.style.lineHeight = '1.5';
+        infoDiv.style.textAlign = 'center';
+        summaryDiv.appendChild(infoDiv);
+        
+        // Get the current map view and route data
+        const center = map.getCenter();
+        const zoom = map.getZoom();
+        let routeGeoJSON = null;
+        
+        if (routeLayer) {
+            routeGeoJSON = routeLayer.toGeoJSON();
+        }
+        
+        // Initialize a new map for the summary
+        const summaryMapInstance = L.map(summaryMap).setView([center.lat, center.lng], zoom);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(summaryMapInstance);
+        
+        // Add the route to the summary map if it exists
+        if (routeGeoJSON) {
+            L.geoJSON(routeGeoJSON, { color: '#EE422E' }).addTo(summaryMapInstance);
+            if (routeLayer) {
+                summaryMapInstance.fitBounds(routeLayer.getBounds());
+            }
+        }
+        
+        // Wait for the map to fully render
+        setTimeout(async () => {
+            try {
+                // Force the map to update
+                summaryMapInstance.invalidateSize();
+                
+                // Wait a bit more for tiles to load
+                setTimeout(async () => {
+                    try {
+                        // Capture the summary div
+                        const canvas = await html2canvas(summaryDiv, {
+                            useCORS: true,
+                            allowTaint: true,
+                            scale: 1,
+                            logging: false
+                        });
+                        
+                        // Convert canvas to data URL and trigger download
+                        const a = document.createElement('a');
+                        a.href = canvas.toDataURL('image/png');
+                        a.download = 'delivery-summary.png';
+                        a.click();
+                        
+                        // Clean up
+                        document.body.removeChild(summaryDiv);
+                        summaryMapInstance.remove();
+                    } catch (error) {
+                        console.error("Error capturing canvas:", error);
+                        output.style.color = 'red';
+                        output.innerHTML = "Error generating summary. Please try again.";
+                        setTimeout(() => {
+                            output.innerHTML = '';
+                            output.style.color = '#00f7ff';
+                        }, 3000);
+                        
+                        // Clean up
+                        document.body.removeChild(summaryDiv);
+                        summaryMapInstance.remove();
+                    }
+                }, 1000); // Extra time for tiles to load
+            } catch (error) {
+                console.error("Error in map rendering:", error);
+                output.style.color = 'red';
+                output.innerHTML = "Error generating summary. Please try again.";
+                setTimeout(() => {
+                    output.innerHTML = '';
+                    output.style.color = '#00f7ff';
+                }, 3000);
+                
+                // Clean up
+                document.body.removeChild(summaryDiv);
+                summaryMapInstance.remove();
+            }
+        }, 500); // Initial time for map to render
     } catch (error) {
-        // Handle potential errors during screenshot
-        console.error("Error capturing canvas:", error);
+        console.error("Error in download process:", error);
+        output.style.color = 'red';
+        output.innerHTML = "Error generating summary. Please try again.";
+        setTimeout(() => {
+            output.innerHTML = '';
+            output.style.color = '#00f7ff';
+        }, 3000);
     }
 }
 </script>
-
 </body>
 </html>
