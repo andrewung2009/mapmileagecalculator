@@ -274,44 +274,6 @@
             height: 300px;
         }
     }
-    
-    /* Summary image container */
-    #summaryImageContainer {
-        display: none;
-        position: absolute;
-        top: -9999px;
-        left: -9999px;
-        width: 800px;
-        background: var(--surface);
-        padding: 20px;
-        border-radius: 8px;
-        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
-    }
-    
-    #summaryImageTitle {
-        color: var(--text-primary);
-        text-align: center;
-        margin-bottom: 20px;
-        font-size: 24px;
-        font-weight: 600;
-    }
-    
-    #summaryImageMap {
-        height: 400px;
-        width: 100%;
-        border-radius: 6px;
-        margin-bottom: 20px;
-        border: 1px solid var(--border-color);
-    }
-    
-    #summaryImageInfo {
-        background: var(--background);
-        padding: 16px;
-        border-radius: 6px;
-        font-size: 18px;
-        line-height: 1.6;
-        text-align: center;
-    }
 </style>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 </head>
@@ -350,12 +312,6 @@
         <button onclick="closeSummaryModal()">Close</button>
     </div>
   </div>
-</div>
-<!-- Hidden container for generating summary image -->
-<div id="summaryImageContainer">
-    <div id="summaryImageTitle">Delivery Summary</div>
-    <div id="summaryImageMap"></div>
-    <div id="summaryImageInfo"></div>
 </div>
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
@@ -525,6 +481,8 @@ function togglePanel() {
 </script>
 <script>
 let summaryMapInstance = null;
+let mapReady = false;
+
 function showSummaryModal() {
     const output = document.getElementById('output');
     if (!output.innerText.trim()) {
@@ -543,43 +501,53 @@ function showSummaryModal() {
     const summaryInfo = document.getElementById('summaryInfo');
     summaryInfo.innerHTML = output.innerHTML;
     
-    if (summaryMapInstance) {
-        summaryMapInstance.remove();
-    }
-    
-    const center = map.getCenter();
-    const zoom = map.getZoom();
-    
-    summaryMapInstance = L.map('summaryMap').setView([center.lat, center.lng], zoom);
-    
-    const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap contributors'
-    }).addTo(summaryMapInstance);
-    
-    if (routeData && routeLayer) {
-        L.geoJSON(routeData.geometry, { color: '#ef4444', weight: 4 }).addTo(summaryMapInstance);
-        summaryMapInstance.fitBounds(routeLayer.getBounds());
-    }
+    mapReady = false;
+    const downloadBtn = document.getElementById('downloadSummaryBtn');
+    downloadBtn.disabled = true;
+    downloadBtn.innerHTML = '<span class="loading-spinner"></span>Preparing map...';
     
     setTimeout(() => {
-        summaryMapInstance.invalidateSize();
+        if (summaryMapInstance) {
+            summaryMapInstance.remove();
+        }
+        
+        const center = map.getCenter();
+        const zoom = map.getZoom();
+        
+        summaryMapInstance = L.map('summaryMap').setView([center.lat, center.lng], zoom);
+        
+        const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(summaryMapInstance);
+        
+        if (routeData && routeLayer) {
+            L.geoJSON(routeData.geometry, { color: '#ef4444', weight: 4 }).addTo(summaryMapInstance);
+            summaryMapInstance.fitBounds(routeLayer.getBounds());
+        }
+        
+        setTimeout(() => {
+            summaryMapInstance.invalidateSize();
+        }, 100);
+        
+        tileLayer.on('load', function() {
+            setTimeout(() => {
+                mapReady = true;
+                downloadBtn.disabled = false;
+                downloadBtn.innerHTML = 'Download as Image';
+            }, 500);
+        });
     }, 100);
 }
+
 function closeSummaryModal() {
     const modal = document.getElementById('summaryModal');
     modal.style.display = 'none';
 }
 
-// New implementation for downloadSummaryImage
+// Simple screenshot approach
 async function downloadSummaryImage() {
-    if (!routeData) {
-        const output = document.getElementById('output');
-        output.style.color = 'var(--error-color)';
-        output.innerHTML = "No route data available. Please calculate a route first.";
-        setTimeout(() => {
-            output.innerHTML = '';
-            output.style.color = 'var(--text-primary)';
-        }, 3000);
+    if (!mapReady) {
+        alert('Please wait for the map to fully load before downloading.');
         return;
     }
     
@@ -588,187 +556,96 @@ async function downloadSummaryImage() {
     downloadBtn.innerHTML = '<span class="loading-spinner"></span>Generating image...';
     
     try {
-        // Create a temporary container for our SVG summary
-        const tempContainer = document.createElement('div');
-        tempContainer.style.position = 'absolute';
-        tempContainer.style.left = '-9999px';
-        tempContainer.style.width = '800px';
-        tempContainer.style.backgroundColor = '#1e293b';
-        tempContainer.style.color = '#f1f5f9';
-        tempContainer.style.fontFamily = 'Inter, sans-serif';
-        tempContainer.style.padding = '20px';
-        tempContainer.style.borderRadius = '8px';
+        // Create a clone of the modal content
+        const modalContent = document.querySelector('.modal-content');
+        const clone = modalContent.cloneNode(true);
         
-        // Create title
-        const title = document.createElement('h2');
-        title.textContent = 'Delivery Summary';
-        title.style.textAlign = 'center';
-        title.style.marginBottom = '20px';
-        title.style.fontSize = '24px';
-        title.style.fontWeight = '600';
-        tempContainer.appendChild(title);
+        // Remove the close button and modal buttons from the clone
+        const closeBtn = clone.querySelector('.close');
+        if (closeBtn) closeBtn.remove();
         
-        // Create SVG container
-        const svgContainer = document.createElement('div');
-        svgContainer.style.width = '100%';
-        svgContainer.style.height = '400px';
-        svgContainer.style.marginBottom = '20px';
-        svgContainer.style.borderRadius = '6px';
-        svgContainer.style.overflow = 'hidden';
-        svgContainer.style.backgroundColor = '#0f172a';
+        const modalButtons = clone.querySelector('.modal-buttons');
+        if (modalButtons) modalButtons.remove();
         
-        // Create SVG
-        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-        svg.setAttribute('width', '100%');
-        svg.setAttribute('height', '100%');
-        svg.setAttribute('viewBox', '0 0 800 400');
+        // Position the clone off-screen
+        clone.style.position = 'absolute';
+        clone.style.left = '-9999px';
+        clone.style.top = '0';
+        clone.style.width = '700px'; // Same as max-width
+        document.body.appendChild(clone);
         
-        // Get route coordinates
-        const routeCoords = routeData.geometry.coordinates;
-        
-        // Calculate bounding box for the route
-        let minLat = routeCoords[0][1];
-        let maxLat = routeCoords[0][1];
-        let minLng = routeCoords[0][0];
-        let maxLng = routeCoords[0][0];
-        
-        for (const coord of routeCoords) {
-            minLat = Math.min(minLat, coord[1]);
-            maxLat = Math.max(maxLat, coord[1]);
-            minLng = Math.min(minLng, coord[0]);
-            maxLng = Math.max(maxLng, coord[0]);
-        }
-        
-        // Add padding to the bounding box
-        const latPadding = (maxLat - minLat) * 0.1;
-        const lngPadding = (maxLng - minLng) * 0.1;
-        minLat -= latPadding;
-        maxLat += latPadding;
-        minLng -= lngPadding;
-        maxLng += lngPadding;
-        
-        // Function to convert coordinates to SVG coordinates
-        const coordToSvg = (lng, lat) => {
-            const x = ((lng - minLng) / (maxLng - minLng)) * 800;
-            const y = 400 - ((lat - minLat) / (maxLat - minLat)) * 400; // Flip Y axis
-            return { x, y };
-        };
-        
-        // Create path for the route
-        let pathData = '';
-        for (let i = 0; i < routeCoords.length; i++) {
-            const { x, y } = coordToSvg(routeCoords[i][0], routeCoords[i][1]);
-            if (i === 0) {
-                pathData += `M ${x} ${y}`;
-            } else {
-                pathData += ` L ${x} ${y}`;
-            }
-        }
-        
-        // Draw the route path
-        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-        path.setAttribute('d', pathData);
-        path.setAttribute('stroke', '#ef4444');
-        path.setAttribute('stroke-width', '4');
-        path.setAttribute('fill', 'none');
-        svg.appendChild(path);
-        
-        // Draw start marker
-        const startSvg = coordToSvg(startCoords[1], startCoords[0]);
-        const startMarker = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-        startMarker.setAttribute('cx', startSvg.x);
-        startMarker.setAttribute('cy', startSvg.y);
-        startMarker.setAttribute('r', '8');
-        startMarker.setAttribute('fill', '#10b981');
-        svg.appendChild(startMarker);
-        
-        const startText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-        startText.setAttribute('x', startSvg.x);
-        startText.setAttribute('y', startSvg.y + 4);
-        startText.setAttribute('text-anchor', 'middle');
-        startText.setAttribute('fill', 'white');
-        startText.setAttribute('font-weight', 'bold');
-        startText.setAttribute('font-size', '12');
-        startText.textContent = 'S';
-        svg.appendChild(startText);
-        
-        // Draw waypoint markers
-        for (let i = 0; i < waypointCoords.length; i++) {
-            const waypointSvg = coordToSvg(waypointCoords[i][1], waypointCoords[i][0]);
-            const waypointMarker = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-            waypointMarker.setAttribute('cx', waypointSvg.x);
-            waypointMarker.setAttribute('cy', waypointSvg.y);
-            waypointMarker.setAttribute('r', '8');
-            waypointMarker.setAttribute('fill', '#3b82f6');
-            svg.appendChild(waypointMarker);
+        // Initialize the map in the clone
+        const cloneMapContainer = clone.querySelector('#summaryMap');
+        if (cloneMapContainer && routeData) {
+            const cloneMap = L.map(cloneMapContainer).setView(map.getCenter(), map.getZoom());
             
-            const waypointText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-            waypointText.setAttribute('x', waypointSvg.x);
-            waypointText.setAttribute('y', waypointSvg.y + 4);
-            waypointText.setAttribute('text-anchor', 'middle');
-            waypointText.setAttribute('fill', 'white');
-            waypointText.setAttribute('font-weight', 'bold');
-            waypointText.setAttribute('font-size', '12');
-            waypointText.textContent = i + 1;
-            svg.appendChild(waypointText);
+            const cloneTileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(cloneMap);
+            
+            L.geoJSON(routeData.geometry, { color: '#ef4444', weight: 4 }).addTo(cloneMap);
+            cloneMap.fitBounds(routeLayer.getBounds());
+            
+            // Wait for the map to load
+            cloneTileLayer.on('load', async function() {
+                setTimeout(async () => {
+                    try {
+                        // Capture the clone
+                        const canvas = await html2canvas(clone, {
+                            useCORS: true,
+                            allowTaint: true,
+                            scale: 2,
+                            backgroundColor: '#1e293b'
+                        });
+                        
+                        // Remove the clone
+                        document.body.removeChild(clone);
+                        
+                        // Download the image
+                        const a = document.createElement('a');
+                        a.href = canvas.toDataURL('image/png');
+                        a.download = 'delivery-summary.png';
+                        a.click();
+                        
+                        // Reset the button
+                        downloadBtn.disabled = false;
+                        downloadBtn.innerHTML = 'Download as Image';
+                    } catch (error) {
+                        console.error('Error capturing canvas:', error);
+                        document.body.removeChild(clone);
+                        
+                        downloadBtn.disabled = false;
+                        downloadBtn.innerHTML = 'Download as Image';
+                        
+                        const output = document.getElementById('output');
+                        output.style.color = 'var(--error-color)';
+                        output.innerHTML = "Error generating summary. Please try again.";
+                        setTimeout(() => {
+                            output.innerHTML = '';
+                            output.style.color = 'var(--text-primary)';
+                        }, 3000);
+                    }
+                }, 1000);
+            });
+        } else {
+            // If no route data, just capture the clone without the map
+            const canvas = await html2canvas(clone, {
+                useCORS: true,
+                allowTaint: true,
+                scale: 2,
+                backgroundColor: '#1e293b'
+            });
+            
+            document.body.removeChild(clone);
+            
+            const a = document.createElement('a');
+            a.href = canvas.toDataURL('image/png');
+            a.download = 'delivery-summary.png';
+            a.click();
+            
+            downloadBtn.disabled = false;
+            downloadBtn.innerHTML = 'Download as Image';
         }
-        
-        // Draw end marker
-        const endSvg = coordToSvg(endCoords[1], endCoords[0]);
-        const endMarker = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-        endMarker.setAttribute('cx', endSvg.x);
-        endMarker.setAttribute('cy', endSvg.y);
-        endMarker.setAttribute('r', '8');
-        endMarker.setAttribute('fill', '#ef4444');
-        svg.appendChild(endMarker);
-        
-        const endText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-        endText.setAttribute('x', endSvg.x);
-        endText.setAttribute('y', endSvg.y + 4);
-        endText.setAttribute('text-anchor', 'middle');
-        endText.setAttribute('fill', 'white');
-        endText.setAttribute('font-weight', 'bold');
-        endText.setAttribute('font-size', '12');
-        endText.textContent = 'E';
-        svg.appendChild(endText);
-        
-        svgContainer.appendChild(svg);
-        tempContainer.appendChild(svgContainer);
-        
-        // Create summary info
-        const summaryInfo = document.createElement('div');
-        summaryInfo.style.backgroundColor = '#0f172a';
-        summaryInfo.style.padding = '16px';
-        summaryInfo.style.borderRadius = '6px';
-        summaryInfo.style.fontSize = '18px';
-        summaryInfo.style.lineHeight = '1.6';
-        summaryInfo.style.textAlign = 'center';
-        summaryInfo.innerHTML = document.getElementById('summaryInfo').innerHTML;
-        tempContainer.appendChild(summaryInfo);
-        
-        // Append to body
-        document.body.appendChild(tempContainer);
-        
-        // Use html2canvas to capture the container
-        const canvas = await html2canvas(tempContainer, {
-            useCORS: true,
-            allowTaint: true,
-            scale: 2,
-            backgroundColor: '#1e293b'
-        });
-        
-        // Remove the temporary container
-        document.body.removeChild(tempContainer);
-        
-        // Convert to data URL and download
-        const a = document.createElement('a');
-        a.href = canvas.toDataURL('image/png');
-        a.download = 'delivery-summary.png';
-        a.click();
-        
-        // Reset the button
-        downloadBtn.disabled = false;
-        downloadBtn.innerHTML = 'Download as Image';
     } catch (error) {
         console.error('Error generating image:', error);
         downloadBtn.disabled = false;
