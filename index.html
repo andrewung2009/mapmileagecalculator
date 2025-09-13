@@ -1,695 +1,893 @@
 <!DOCTYPE html>
 <html>
-   <head>
-      <meta charset="utf-8">
-      <title>Delivery Planner</title>
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-      <style>
-         :root {
-         --primary-color: #00a8cc;
-         --secondary-color: #0c4a6e;
-         --background: #0f172a;
-         --surface: #1e293b;
-         --text-primary: #f1f5f9;
-         --text-secondary: #94a3b8;
-         --border-color: #334155;
-         --error-color: #ef4444;
-         }
-         * {
-         box-sizing: border-box;
-         margin: 0;
-         padding: 0;
-         }
-         body {
-         font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-         background-color: var(--background);
-         color: var(--text-primary);
-         line-height: 1.6;
-         overflow: hidden;
-         }
-         #map {
-         height: 100vh;
-         width: 100%;
-         z-index: 0;
-         }
-         .control-panel {
-         position: absolute;
-         bottom: 20px;
-         right: 20px;
-         background: var(--surface);
-         border-radius: 8px;
-         padding: 20px;
-         width: 320px;
-         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-         z-index: 1001;
-         transition: all 0.3s ease;
-         max-height: 90vh;
-         overflow-y: auto;
-         border: 1px solid var(--border-color);
-         }
-         .control-panel h3 {
-         font-size: 18px;
-         font-weight: 600;
-         margin-bottom: 16px;
-         color: var(--text-primary);
-         display: flex;
-         align-items: center;
-         gap: 8px;
-         }
-         .toggle-btn {
-         position: absolute;
-         bottom: 20px;
-         right: 20px;
-         background: var(--primary-color);
-         border: none;
-         border-radius: 50%;
-         width: 48px;
-         height: 48px;
-         color: white;
-         font-size: 20px;
-         cursor: pointer;
-         z-index: 1002;
-         transition: all 0.2s ease;
-         display: flex;
-         align-items: center;
-         justify-content: center;
-         }
-         .toggle-btn:hover {
-         background: #0086a8;
-         transform: scale(1.05);
-         }
-         input {
-         width: 100%;
-         padding: 12px 14px;
-         margin-bottom: 12px;
-         border: 1px solid var(--border-color);
-         border-radius: 6px;
-         background: var(--background);
-         color: var(--text-primary);
-         font-size: 15px;
-         transition: all 0.2s ease;
-         }
-         input:focus {
-         outline: none;
-         border-color: var(--primary-color);
-         box-shadow: 0 0 0 3px rgba(0, 168, 204, 0.1);
-         }
-         ::placeholder {
-         color: var(--text-secondary);
-         }
-         button {
-         padding: 12px 16px;
-         width: 100%;
-         background: var(--primary-color);
-         color: white;
-         border: none;
-         cursor: pointer;
-         border-radius: 6px;
-         font-weight: 500;
-         font-size: 15px;
-         margin-top: 8px;
-         transition: all 0.2s ease;
-         }
-         button:hover {
-         background: #0086a8;
-         }
-         button:disabled {
-         background: var(--text-secondary);
-         cursor: not-allowed;
-         }
-         .autocomplete-list {
-         position: absolute;
-         background: var(--surface);
-         border: 1px solid var(--border-color);
-         border-radius: 6px;
-         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-         max-height: 180px;
-         overflow-y: auto;
-         z-index: 2000;
-         width: 100%;
-         margin-top: 4px;
-         }
-         .autocomplete-suggestion {
-         padding: 10px 14px;
-         cursor: pointer;
-         color: var(--text-primary);
-         font-size: 14px;
-         transition: background 0.2s ease;
-         }
-         .autocomplete-suggestion:hover {
-         background: rgba(0, 168, 204, 0.1);
-         }
-         .input-group {
-         position: relative;
-         margin-bottom: 16px;
-         }
-         #output {
-         margin-top: 16px;
-         padding: 12px;
-         background: var(--background);
-         border-radius: 6px;
-         font-size: 15px;
-         line-height: 1.5;
-         }
-         /* Modal styling */
-         .modal {
-         display: none;
-         position: fixed;
-         z-index: 2000;
-         left: 0;
-         top: 0;
-         width: 100%;
-         height: 100%;
-         background-color: rgba(15, 23, 42, 0.85);
-         overflow: auto;
-         backdrop-filter: blur(4px);
-         }
-         .modal-content {
-         background: var(--surface);
-         margin: 40px auto;
-         padding: 24px;
-         border-radius: 8px;
-         width: 90%;
-         max-width: 700px;
-         box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
-         border: 1px solid var(--border-color);
-         }
-         .close {
-         color: var(--text-secondary);
-         float: right;
-         font-size: 24px;
-         font-weight: 400;
-         cursor: pointer;
-         line-height: 1;
-         }
-         .close:hover {
-         color: var(--text-primary);
-         }
-         #summaryMap {
-         height: 400px;
-         width: 100%;
-         border-radius: 6px;
-         margin: 20px 0;
-         border: 1px solid var(--border-color);
-         }
-         .summary-info {
-         text-align: center;
-         font-size: 16px;
-         margin: 20px 0;
-         padding: 16px;
-         background: var(--background);
-         border-radius: 6px;
-         line-height: 1.6;
-         }
-         .modal-buttons {
-         display: flex;
-         justify-content: center;
-         gap: 12px;
-         margin-top: 20px;
-         }
-         .modal-buttons button {
-         width: auto;
-         padding: 10px 20px;
-         }
-         .loading-spinner {
-         display: inline-block;
-         width: 16px;
-         height: 16px;
-         border: 2px solid rgba(255, 255, 255, 0.3);
-         border-radius: 50%;
-         border-top-color: white;
-         animation: spin 1s ease-in-out infinite;
-         margin-right: 8px;
-         vertical-align: middle;
-         }
-         @keyframes spin {
-         to { transform: rotate(360deg); }
-         }
-         /* Responsive adjustments */
-         @media (max-width: 768px) {
-         .control-panel {
-         width: 280px;
-         padding: 16px;
-         bottom: 10px;
-         right: 10px;
-         }
-         .modal-content {
-         width: 95%;
-         margin: 20px auto;
-         padding: 16px;
-         }
-         #summaryMap {
-         height: 300px;
-         }
-         }
-         /* Summary image container */
-         #summaryImageContainer {
-         display: none;
-         position: absolute;
-         top: -9999px;
-         left: -9999px;
-         width: 800px;
-         background: var(--surface);
-         padding: 20px;
-         border-radius: 8px;
-         box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
-         }
-         #summaryImageTitle {
-         color: var(--text-primary);
-         text-align: center;
-         margin-bottom: 20px;
-         font-size: 24px;
-         font-weight: 600;
-         }
-         #summaryImageMap {
-         height: 400px;
-         width: 100%;
-         border-radius: 6px;
-         margin-bottom: 20px;
-         border: 1px solid var(--border-color);
-         }
-         #summaryImageInfo {
-         background: var(--background);
-         padding: 16px;
-         border-radius: 6px;
-         font-size: 18px;
-         line-height: 1.6;
-         text-align: center;
-         }
-      </style>
-      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-   </head>
-   <body>
-      <div id="map"></div>
-      <div class="control-panel" id="planner">
-         <h3>Delivery Planner</h3>
-         <div class="input-group">
-            <input type="text" id="start" placeholder="Start location">
-            <div id="startList" class="autocomplete-list"></div>
-         </div>
-         <div id="waypoints-container"></div>
-         <button id="addWaypointBtn" type="button">+ Add Location</button>
-         <div class="input-group" style="margin-top:16px;">
-            <input type="text" id="end" placeholder="Destination">
-            <div id="endList" class="autocomplete-list"></div>
-         </div>
-         <button onclick="calculateRoute()">Calculate Route</button>
-         <div id="output"></div>
-         <button id="downloadBtn" onclick="showSummaryModal()" style="margin-top:16px;">Download Summary</button>
-      </div>
-      <button class="toggle-btn" onclick="togglePanel()">☰</button>
-      <!-- Modal for delivery summary -->
-      <div id="summaryModal" class="modal">
-         <div class="modal-content">
-            <span class="close" onclick="closeSummaryModal()">&times;</span>
-            <h2 style="color: var(--text-primary); text-align: center; margin-bottom: 20px;">Delivery Summary</h2>
-            <div id="summaryMap"></div>
-            <div id="summaryInfo" class="summary-info"></div>
-            <div class="modal-buttons">
-               <button id="downloadSummaryBtn" onclick="downloadSummaryImage()">Download as Image</button>
-               <button onclick="closeSummaryModal()">Close</button>
+<head>
+<meta charset="utf-8">
+<title>Delivery Planner</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<style>
+    :root {
+        --primary-color: #00a8cc;
+        --secondary-color: #0c4a6e;
+        --background: #0f172a;
+        --surface: #1e293b;
+        --text-primary: #f1f5f9;
+        --text-secondary: #94a3b8;
+        --border-color: #334155;
+        --error-color: #ef4444;
+        --success-color: #10b981;
+    }
+    
+    * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+    }
+    
+    body {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background-color: var(--background);
+        color: var(--text-primary);
+        line-height: 1.6;
+        overflow: hidden;
+    }
+    
+    #map {
+        height: 100vh;
+        width: 100%;
+        z-index: 0;
+    }
+    
+    .control-panel {
+        position: absolute;
+        bottom: 20px;
+        right: 20px;
+        background: var(--surface);
+        border-radius: 8px;
+        padding: 20px;
+        width: 320px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        z-index: 1001;
+        transition: all 0.3s ease;
+        max-height: 90vh;
+        overflow-y: auto;
+        border: 1px solid var(--border-color);
+    }
+    
+    .control-panel h3 {
+        font-size: 18px;
+        font-weight: 600;
+        margin-bottom: 16px;
+        color: var(--text-primary);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .toggle-btn {
+        position: absolute;
+        bottom: 20px;
+        right: 20px;
+        background: var(--primary-color);
+        border: none;
+        border-radius: 50%;
+        width: 48px;
+        height: 48px;
+        color: white;
+        font-size: 20px;
+        cursor: pointer;
+        z-index: 1002;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .toggle-btn:hover {
+        background: #0086a8;
+        transform: scale(1.05);
+    }
+    
+    input {
+        width: 100%;
+        padding: 12px 14px;
+        margin-bottom: 12px;
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        background: var(--background);
+        color: var(--text-primary);
+        font-size: 15px;
+        transition: all 0.2s ease;
+    }
+    
+    input:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 3px rgba(0, 168, 204, 0.1);
+    }
+    
+    ::placeholder {
+        color: var(--text-secondary);
+    }
+    
+    button {
+        padding: 12px 16px;
+        width: 100%;
+        background: var(--primary-color);
+        color: white;
+        border: none;
+        cursor: pointer;
+        border-radius: 6px;
+        font-weight: 500;
+        font-size: 15px;
+        margin-top: 8px;
+        transition: all 0.2s ease;
+    }
+    
+    button:hover {
+        background: #0086a8;
+    }
+    
+    button:disabled {
+        background: var(--text-secondary);
+        cursor: not-allowed;
+    }
+    
+    .autocomplete-list {
+        position: absolute;
+        background: var(--surface);
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        max-height: 180px;
+        overflow-y: auto;
+        z-index: 2000;
+        width: 100%;
+        margin-top: 4px;
+    }
+    
+    .autocomplete-suggestion {
+        padding: 10px 14px;
+        cursor: pointer;
+        color: var(--text-primary);
+        font-size: 14px;
+        transition: background 0.2s ease;
+    }
+    
+    .autocomplete-suggestion:hover {
+        background: rgba(0, 168, 204, 0.1);
+    }
+    
+    .input-group {
+        position: relative;
+        margin-bottom: 16px;
+    }
+    
+    #output {
+        margin-top: 16px;
+        padding: 12px;
+        background: var(--background);
+        border-radius: 6px;
+        font-size: 15px;
+        line-height: 1.5;
+    }
+    
+    /* Modal styling */
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 2000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(15, 23, 42, 0.85);
+        overflow: auto;
+        backdrop-filter: blur(4px);
+    }
+    
+    .modal-content {
+        background: var(--surface);
+        margin: 40px auto;
+        padding: 24px;
+        border-radius: 8px;
+        width: 90%;
+        max-width: 700px;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+        border: 1px solid var(--border-color);
+    }
+    
+    .close {
+        color: var(--text-secondary);
+        float: right;
+        font-size: 24px;
+        font-weight: 400;
+        cursor: pointer;
+        line-height: 1;
+    }
+    
+    .close:hover {
+        color: var(--text-primary);
+    }
+    
+    #summaryMapContainer {
+        width: 100%;
+        height: 400px;
+        margin: 20px 0;
+    }
+    
+    #summaryMap {
+        height: 100%;
+        width: 100%;
+        border-radius: 6px;
+        border: 1px solid var(--border-color);
+    }
+    
+    .summary-info {
+        text-align: center;
+        font-size: 16px;
+        margin: 20px 0;
+        padding: 16px;
+        background: var(--background);
+        border-radius: 6px;
+        line-height: 1.6;
+    }
+    
+    .modal-buttons {
+        display: flex;
+        justify-content: center;
+        gap: 12px;
+        margin-top: 20px;
+    }
+    
+    .modal-buttons button {
+        width: auto;
+        padding: 10px 20px;
+    }
+    
+    .loading-spinner {
+        display: inline-block;
+        width: 16px;
+        height: 16px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-radius: 50%;
+        border-top-color: white;
+        animation: spin 1s ease-in-out infinite;
+        margin-right: 8px;
+        vertical-align: middle;
+    }
+    
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+    
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        .control-panel {
+            width: 280px;
+            padding: 16px;
+            bottom: 10px;
+            right: 10px;
+        }
+        
+        .modal-content {
+            width: 95%;
+            margin: 20px auto;
+            padding: 16px;
+        }
+        
+        #summaryMapContainer {
+            height: 300px;
+        }
+    }
+    
+    /* Summary image container */
+    #summaryImageContainer {
+        display: none;
+        position: absolute;
+        top: -9999px;
+        left: -9999px;
+        width: 800px;
+        background: var(--surface);
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+    }
+    
+    #summaryImageTitle {
+        color: var(--text-primary);
+        text-align: center;
+        margin-bottom: 20px;
+        font-size: 24px;
+        font-weight: 600;
+    }
+    
+    #summaryImageMapContainer {
+        height: 400px;
+        width: 100%;
+        margin-bottom: 20px;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    #summaryImageMap {
+        height: 100%;
+        width: 100%;
+        border-radius: 6px;
+        border: 1px solid var(--border-color);
+    }
+    
+    #summaryImageInfo {
+        background: var(--background);
+        padding: 16px;
+        border-radius: 6px;
+        font-size: 18px;
+        line-height: 1.6;
+        text-align: center;
+    }
+    
+    .notification {
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        padding: 12px 20px;
+        border-radius: 6px;
+        color: white;
+        font-weight: 500;
+        z-index: 3000;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+    
+    .notification.show {
+        opacity: 1;
+    }
+    
+    .notification.error {
+        background: var(--error-color);
+    }
+    
+    .notification.success {
+        background: var(--success-color);
+    }
+    
+    .retry-button {
+        background: var(--primary-color);
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: 500;
+        margin-top: 10px;
+        transition: background 0.2s ease;
+    }
+    
+    .retry-button:hover {
+        background: #0086a8;
+    }
+</style>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+<div id="map"></div>
+<div class="control-panel" id="planner">
+    <h3>Delivery Planner</h3>
+    <div class="input-group">
+        <input type="text" id="start" placeholder="Start location">
+        <div id="startList" class="autocomplete-list"></div>
+    </div>
+    
+    <div id="waypoints-container"></div>
+    
+    <button id="addWaypointBtn" type="button">+ Add Location</button>
+    
+    <div class="input-group" style="margin-top:16px;">
+        <input type="text" id="end" placeholder="Destination">
+        <div id="endList" class="autocomplete-list"></div>
+    </div>
+    
+    <button onclick="calculateRoute()">Calculate Route</button>
+    <div id="output"></div>
+    <button id="downloadBtn" onclick="showSummaryModal()" style="margin-top:16px;">Download Summary</button>
+</div>
+<button class="toggle-btn" onclick="togglePanel()">☰</button>
+<!-- Modal for delivery summary -->
+<div id="summaryModal" class="modal">
+  <div class="modal-content">
+    <span class="close" onclick="closeSummaryModal()">&times;</span>
+    <h2 style="color: var(--text-primary); text-align: center; margin-bottom: 20px;">Delivery Summary</h2>
+    <div id="summaryMapContainer">
+        <div id="summaryMap"></div>
+    </div>
+    <div id="summaryInfo" class="summary-info"></div>
+    <div class="modal-buttons">
+        <button id="downloadSummaryBtn" onclick="downloadSummaryImage()">Download as Image</button>
+        <button onclick="closeSummaryModal()">Close</button>
+    </div>
+    <div id="downloadErrorContainer" style="display: none; text-align: center; margin-top: 20px;">
+        <p style="color: var(--error-color);">Failed to generate image. Please try again.</p>
+        <button class="retry-button" onclick="retryDownload()">Retry</button>
+    </div>
+  </div>
+</div>
+<!-- Hidden container for generating summary image -->
+<div id="summaryImageContainer">
+    <div id="summaryImageTitle">Delivery Summary</div>
+    <div id="summaryImageMapContainer">
+        <div id="summaryImageMap"></div>
+    </div>
+    <div id="summaryImageInfo"></div>
+</div>
+<div id="notification" class="notification"></div>
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script>
+let map = L.map('map').setView([1.5533, 110.3592], 8);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors'
+}).addTo(map);
+let startCoords = null;
+let endCoords = null;
+let waypointCoords = [];
+let routeLayer = null;
+let routeData = null;
+let summaryMapInstance = null;
+let mapReady = false;
+let summaryImageMapInstance = null;
+let downloadAttempt = 0;
+const MAX_DOWNLOAD_ATTEMPTS = 3;
+
+function showNotification(message, type = 'error') {
+    const notification = document.getElementById('notification');
+    notification.textContent = message;
+    notification.className = `notification ${type} show`;
+    
+    setTimeout(() => {
+        notification.classList.remove('show');
+    }, 3000);
+}
+
+function autocomplete(inputId, listId) {
+    const input = document.getElementById(inputId);
+    const list = document.getElementById(listId);
+    input.addEventListener('input', async function () {
+        const query = this.value.trim();
+        if (query.length < 2) {
+            list.innerHTML = '';
+            return;
+        }
+        const bbox = "109.5,0.8,115,5.5";
+        const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&bbox=${bbox}&limit=5`;
+        try {
+            const res = await fetch(url);
+            if (!res.ok) throw new Error('Network response was not ok');
+            const data = await res.json();
+            list.innerHTML = '';
+            data.features.forEach(f => {
+                const name = f.properties.name || '';
+                const street = f.properties.street || '';
+                const postcode = f.properties.postcode || '';
+                const city = f.properties.city || '';
+                const state = f.properties.state || '';
+                const displayName = [name, street, postcode, city, state].filter(Boolean).join(', ');
+                
+                const div = document.createElement('div');
+                div.classList.add('autocomplete-suggestion');
+                div.textContent = displayName;
+                div.onclick = () => {
+                    input.value = displayName;
+                    list.innerHTML = '';
+                    input.blur();
+                    if (inputId === 'start') {
+                        startCoords = f.geometry.coordinates.slice().reverse();
+                    } else if (inputId === 'end') {
+                        endCoords = f.geometry.coordinates.slice().reverse();
+                    } else if (inputId.startsWith('waypoint-')) {
+                        const idx = parseInt(inputId.split('-')[1]);
+                        waypointCoords[idx] = f.geometry.coordinates.slice().reverse();
+                    }
+                };
+                list.appendChild(div);
+            });
+        } catch (error) {
+            console.error('Autocomplete error:', error);
+            showNotification('Location search failed. Please check your connection.');
+        }
+    });
+}
+autocomplete('start', 'startList');
+autocomplete('end', 'endList');
+const waypointsContainer = document.getElementById('waypoints-container');
+const addWaypointBtn = document.getElementById('addWaypointBtn');
+function addWaypointInput() {
+    const idx = waypointCoords.length;
+    const wrapper = document.createElement('div');
+    wrapper.className = 'input-group';
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.placeholder = `Location ${idx + 1}`;
+    input.id = `waypoint-${idx}`;
+    input.autocomplete = 'off';
+    const list = document.createElement('div');
+    list.className = 'autocomplete-list';
+    list.id = `waypointList-${idx}`;
+    wrapper.appendChild(input);
+    wrapper.appendChild(list);
+    waypointsContainer.appendChild(wrapper);
+    autocomplete(input.id, list.id);
+    waypointCoords.push(null);
+}
+addWaypointBtn.addEventListener('click', () => {
+    addWaypointInput();
+});
+async function calculateRoute() {
+    const calculateBtn = document.querySelector('button[onclick="calculateRoute()"]');
+    const output = document.getElementById('output');
+    output.style.color = 'var(--text-primary)';
+    output.innerHTML = '';
+    const originalBtnText = calculateBtn.innerText;
+    calculateBtn.innerText = 'Calculating...';
+    calculateBtn.disabled = true;
+    
+    if (!startCoords) {
+        output.style.color = 'var(--error-color)';
+        output.innerHTML = "Please select a start location.";
+        calculateBtn.innerText = originalBtnText;
+        calculateBtn.disabled = false;
+        return;
+    }
+    if (!endCoords) {
+        output.style.color = 'var(--error-color)';
+        output.innerHTML = "Please select a destination.";
+        calculateBtn.innerText = originalBtnText;
+        calculateBtn.disabled = false;
+        return;
+    }
+    for (let i = 0; i < waypointCoords.length; i++) {
+        if (waypointCoords[i] === null) {
+            output.style.color = 'var(--error-color)';
+            output.innerHTML = `Please select Location ${i + 1} or remove it.`;
+            calculateBtn.innerText = originalBtnText;
+            calculateBtn.disabled = false;
+            return;
+        }
+    }
+    
+    try {
+        const allCoords = [startCoords, ...waypointCoords, endCoords];
+        const coordStr = allCoords.map(c => `${c[1]},${c[0]}`).join(';');
+        const url = `https://router.project-osrm.org/route/v1/driving/${coordStr}?overview=full&geometries=geojson&steps=false`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error('Network response was not ok');
+        const data = await res.json();
+        
+        if (data.code !== 'Ok') {
+            output.style.color = 'var(--error-color)';
+            output.innerHTML = "Routing failed. Please check your locations.";
+            calculateBtn.innerText = originalBtnText;
+            calculateBtn.disabled = false;
+            return;
+        }
+        
+        const route = data.routes[0];
+        routeData = route;
+        const distanceKm = route.distance / 1000;
+        const durationMinutes = route.duration / 60;
+        let earnings = 0;
+        if (distanceKm <= 15) earnings = 10;
+        else earnings = distanceKm * 0.5;
+        
+        output.innerHTML = `
+            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                <span>Distance:</span>
+                <span style="font-weight: 500;">${distanceKm.toFixed(2)} km</span>
             </div>
-         </div>
-      </div>
-      <!-- Hidden container for generating summary image -->
-      <div id="summaryImageContainer">
-         <div id="summaryImageTitle">Delivery Summary</div>
-         <div id="summaryImageMap"></div>
-         <div id="summaryImageInfo"></div>
-      </div>
-      <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-      <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
-      <script>
-         let map = L.map('map').setView([1.5533, 110.3592], 8);
-         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-             attribution: '&copy; OpenStreetMap contributors'
-         }).addTo(map);
-         let startCoords = null;
-         let endCoords = null;
-         let waypointCoords = [];
-         let routeLayer = null;
-         let routeData = null;
-         
-         function autocomplete(inputId, listId) {
-             const input = document.getElementById(inputId);
-             const list = document.getElementById(listId);
-             input.addEventListener('input', async function () {
-                 const query = this.value.trim();
-                 if (query.length < 2) {
-                     list.innerHTML = '';
-                     return;
-                 }
-                 const bbox = "109.5,0.8,115,5.5";
-                 const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&bbox=${bbox}&limit=5`;
-                 const res = await fetch(url);
-                 const data = await res.json();
-                 list.innerHTML = '';
-                 data.features.forEach(f => {
-                     const name = f.properties.name || '';
-                     const street = f.properties.street || '';
-                     const postcode = f.properties.postcode || '';
-                     const city = f.properties.city || '';
-                     const state = f.properties.state || '';
-                     const displayName = [name, street, postcode, city, state].filter(Boolean).join(', ');
-                     
-                     const div = document.createElement('div');
-                     div.classList.add('autocomplete-suggestion');
-                     div.textContent = displayName;
-                     div.onclick = () => {
-                         input.value = displayName;
-                         list.innerHTML = '';
-                         input.blur();
-                         if (inputId === 'start') {
-                             startCoords = f.geometry.coordinates.slice().reverse();
-                         } else if (inputId === 'end') {
-                             endCoords = f.geometry.coordinates.slice().reverse();
-                         } else if (inputId.startsWith('waypoint-')) {
-                             const idx = parseInt(inputId.split('-')[1]);
-                             waypointCoords[idx] = f.geometry.coordinates.slice().reverse();
-                         }
-                     };
-                     list.appendChild(div);
-                 });
-             });
-         }
-         autocomplete('start', 'startList');
-         autocomplete('end', 'endList');
-         const waypointsContainer = document.getElementById('waypoints-container');
-         const addWaypointBtn = document.getElementById('addWaypointBtn');
-         function addWaypointInput() {
-             const idx = waypointCoords.length;
-             const wrapper = document.createElement('div');
-             wrapper.className = 'input-group';
-             const input = document.createElement('input');
-             input.type = 'text';
-             input.placeholder = `Location ${idx + 1}`;
-             input.id = `waypoint-${idx}`;
-             input.autocomplete = 'off';
-             const list = document.createElement('div');
-             list.className = 'autocomplete-list';
-             list.id = `waypointList-${idx}`;
-             wrapper.appendChild(input);
-             wrapper.appendChild(list);
-             waypointsContainer.appendChild(wrapper);
-             autocomplete(input.id, list.id);
-             waypointCoords.push(null);
-         }
-         addWaypointBtn.addEventListener('click', () => {
-             addWaypointInput();
-         });
-         async function calculateRoute() {
-             const calculateBtn = document.querySelector('button[onclick="calculateRoute()"]');
-             const output = document.getElementById('output');
-             output.style.color = 'var(--text-primary)';
-             output.innerHTML = '';
-             const originalBtnText = calculateBtn.innerText;
-             calculateBtn.innerText = 'Calculating...';
-             calculateBtn.disabled = true;
-             
-             if (!startCoords) {
-                 output.style.color = 'var(--error-color)';
-                 output.innerHTML = "Please select a start location.";
-                 calculateBtn.innerText = originalBtnText;
-                 calculateBtn.disabled = false;
-                 return;
-             }
-             if (!endCoords) {
-                 output.style.color = 'var(--error-color)';
-                 output.innerHTML = "Please select a destination.";
-                 calculateBtn.innerText = originalBtnText;
-                 calculateBtn.disabled = false;
-                 return;
-             }
-             for (let i = 0; i < waypointCoords.length; i++) {
-                 if (waypointCoords[i] === null) {
-                     output.style.color = 'var(--error-color)';
-                     output.innerHTML = `Please select Location ${i + 1} or remove it.`;
-                     calculateBtn.innerText = originalBtnText;
-                     calculateBtn.disabled = false;
-                     return;
-                 }
-             }
-             
-             try {
-                 const allCoords = [startCoords, ...waypointCoords, endCoords];
-                 const coordStr = allCoords.map(c => `${c[1]},${c[0]}`).join(';');
-                 const url = `https://router.project-osrm.org/route/v1/driving/${coordStr}?overview=full&geometries=geojson&steps=false`;
-                 const res = await fetch(url);
-                 const data = await res.json();
-                 
-                 if (data.code !== 'Ok') {
-                     output.style.color = 'var(--error-color)';
-                     output.innerHTML = "Routing failed. Please check your locations.";
-                     calculateBtn.innerText = originalBtnText;
-                     calculateBtn.disabled = false;
-                     return;
-                 }
-                 
-                 const route = data.routes[0];
-                 routeData = route;
-                 const distanceKm = route.distance / 1000;
-                 const durationMinutes = route.duration / 60;
-                 let earnings = 0;
-                 if (distanceKm <= 15) earnings = 10;
-                 else earnings = distanceKm * 0.5;
-                 
-                 output.innerHTML = `
-                     <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                         <span>Distance:</span>
-                         <span style="font-weight: 500;">${distanceKm.toFixed(2)} km</span>
-                     </div>
-                     <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                         <span>Est. Time:</span>
-                         <span style="font-weight: 500;">${durationMinutes.toFixed(0)} mins</span>
-                     </div>
-                     <div style="display: flex; justify-content: space-between;">
-                         <span>Earnings:</span>
-                         <span style="font-weight: 500;">RM ${earnings.toFixed(2)}</span>
-                     </div>
-                 `;
-                 
-                 if (routeLayer) map.removeLayer(routeLayer);
-                 routeLayer = L.geoJSON(route.geometry, { color: '#ef4444', weight: 4 }).addTo(map);
-                 map.fitBounds(routeLayer.getBounds());
-             } catch (error) {
-                 output.style.color = 'var(--error-color)';
-                 output.innerHTML = "Network error. Please try again.";
-             } finally {
-                 calculateBtn.innerText = originalBtnText;
-                 calculateBtn.disabled = false;
-             }
-         }
-         function togglePanel() {
-             const panel = document.getElementById('planner');
-             panel.style.display = (panel.style.display === 'none') ? 'block' : 'none';
-         }
-      </script>
-      <script>
-         let summaryMapInstance = null;
-         let mapReady = false;
-         let summaryImageMapInstance = null;
-         
-         function showSummaryModal() {
-             const output = document.getElementById('output');
-             if (!output.innerText.trim()) {
-                 output.style.color = 'var(--error-color)';
-                 output.innerHTML = "Please calculate a route first.";
-                 setTimeout(() => {
-                     output.innerHTML = '';
-                     output.style.color = 'var(--text-primary)';
-                 }, 3000);
-                 return;
-             }
-             
-             const modal = document.getElementById('summaryModal');
-             modal.style.display = 'block';
-             
-             const summaryInfo = document.getElementById('summaryInfo');
-             summaryInfo.innerHTML = output.innerHTML;
-             
-             mapReady = false;
-             const downloadBtn = document.getElementById('downloadSummaryBtn');
-             downloadBtn.disabled = true;
-             downloadBtn.innerHTML = '<span class="loading-spinner"></span>Preparing map...';
-             
-             setTimeout(() => {
-                 if (summaryMapInstance) {
-                     summaryMapInstance.remove();
-                 }
-                 
-                 const center = map.getCenter();
-                 const zoom = map.getZoom();
-                 
-                 summaryMapInstance = L.map('summaryMap').setView([center.lat, center.lng], zoom);
-                 
-                 const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                     attribution: '&copy; OpenStreetMap contributors'
-                 }).addTo(summaryMapInstance);
-                 
-                 if (routeData && routeLayer) {
-                     L.geoJSON(routeData.geometry, { color: '#ef4444', weight: 4 }).addTo(summaryMapInstance);
-                     summaryMapInstance.fitBounds(routeLayer.getBounds());
-                 }
-                 
-                 setTimeout(() => {
-                     summaryMapInstance.invalidateSize();
-                 }, 100);
-                 
-                 tileLayer.on('load', function() {
-                     setTimeout(() => {
-                         mapReady = true;
-                         downloadBtn.disabled = false;
-                         downloadBtn.innerHTML = 'Download as Image';
-                     }, 500);
-                 });
-             }, 100);
-         }
-         
-         function closeSummaryModal() {
-             const modal = document.getElementById('summaryModal');
-             modal.style.display = 'none';
-         }
-         
-         async function downloadSummaryImage() {
-         if (!mapReady) {
-         alert('Please wait for the map to fully load before downloading.');
-         return;
-         }
-         
-         const downloadBtn = document.getElementById('downloadSummaryBtn');
-         const summaryContainer = document.getElementById('summaryImageContainer');
-         const summaryInfo = document.getElementById('summaryInfo');
-         const exportInfo = document.getElementById('summaryImageInfo');
-         let exportMap = null;
-         
-         try {
-         // 0) UI state
-         downloadBtn.disabled = true;
-         downloadBtn.innerHTML = '<span class="loading-spinner"></span>Generating image...';
-         
-         // 1) Copy info into export container
-         exportInfo.innerHTML = summaryInfo.innerHTML;
-         
-         // 2) Make container visible *before* initializing Leaflet
-         //    (and ensure stable size so Leaflet computes correct layout)
-         const prev = {
-         display: summaryContainer.style.display,
-         position: summaryContainer.style.position,
-         top: summaryContainer.style.top,
-         left: summaryContainer.style.left,
-         height: summaryContainer.style.height
-         };
-         summaryContainer.style.display = 'block';
-         summaryContainer.style.position = 'relative';
-         summaryContainer.style.top = '0';
-         summaryContainer.style.left = '0';
-         // Your CSS sets width:800px; enforce a height so map has a real box
-         // (summaryImageMap already has height:400px in CSS)
-         summaryContainer.style.height = 'auto';
-         
-         // 3) (Re)create the export map
-         if (window.summaryImageMapInstance) {
-         window.summaryImageMapInstance.remove();
-         window.summaryImageMapInstance = null;
-         }
-         
-         const center = map.getCenter();
-         const zoom = map.getZoom();
-         
-         window.summaryImageMapInstance = L.map('summaryImageMap', {
-         zoomAnimation: false,
-         fadeAnimation: false
-         }).setView([center.lat, center.lng], zoom);
-         
-         exportMap = window.summaryImageMapInstance;
-         
-         const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-         attribution: '&copy; OpenStreetMap contributors',
-         crossOrigin: true
-         }).addTo(exportMap);
-         
-         // 4) Draw route and fit bounds if available
-         let willMove = false;
-         if (routeData && routeLayer) {
-         L.geoJSON(routeData.geometry, { color: '#ef4444', weight: 4 }).addTo(exportMap);
-         exportMap.fitBounds(routeLayer.getBounds(), { animate: false, padding: [8,8] });
-         willMove = true;
-         }
-         
-         // 5) Now that it’s visible, force Leaflet to recalc sizes
-         exportMap.invalidateSize(true);
-         
-         // 6) Wait for both tiles and (if used) movement to finish, with a timeout fallback
-         await new Promise((resolve) => {
-         let tilesLoaded = false;
-         let moved = !willMove; // if no fitBounds, consider movement done
-         
-         const check = () => { if (tilesLoaded && moved) resolve(); };
-         
-         tileLayer.once('load', () => { tilesLoaded = true; check(); });
-         if (willMove) exportMap.once('moveend', () => { moved = true; check(); });
-         
-         // Safety fallback (in case cached tiles don’t emit or slow network)
-         setTimeout(() => { tilesLoaded = true; moved = true; check(); }, 3000);
-         });
-         
-         // Tiny buffer to let painting settle
-         await new Promise(r => setTimeout(r, 120));
-         
-         // 7) Capture
-         const canvas = await html2canvas(summaryContainer, {
-         useCORS: true,
-         allowTaint: true,
-         scale: window.devicePixelRatio || 2,
-         logging: false,
-         backgroundColor: '#1e293b'
-         });
-         
-         // 8) Download
-         const a = document.createElement('a');
-         a.href = canvas.toDataURL('image/png');
-         a.download = 'delivery-summary.png';
-         a.click();
-         
-         // 9) Cleanup + UI reset
-         if (exportMap) exportMap.remove();
-         window.summaryImageMapInstance = null;
-         
-         summaryContainer.style.display = prev.display ?? '';
-         summaryContainer.style.position = prev.position ?? '';
-         summaryContainer.style.top = prev.top ?? '';
-         summaryContainer.style.left = prev.left ?? '';
-         summaryContainer.style.height = prev.height ?? '';
-         
-         downloadBtn.disabled = false;
-         downloadBtn.innerHTML = 'Download as Image';
-         } catch (error) {
-         console.error("Error generating summary image:", error);
-         
-         // Hide and clean on failure
-         if (exportMap) exportMap.remove();
-         window.summaryImageMapInstance = null;
-         
-         summaryContainer.style.display = 'none';
-         summaryContainer.style.position = 'absolute';
-         summaryContainer.style.top = '-9999px';
-         summaryContainer.style.left = '-9999px';
-         
-         downloadBtn.disabled = false;
-         downloadBtn.innerHTML = 'Download as Image';
-         
-         const output = document.getElementById('output');
-         output.style.color = 'var(--error-color)';
-         output.innerHTML = "Error generating summary. Please try again.";
-         setTimeout(() => {
-         output.innerHTML = '';
-         output.style.color = 'var(--text-primary)';
-         }, 3000);
-         }
-         }
-         
-         
-      </script>
-   </body>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                <span>Est. Time:</span>
+                <span style="font-weight: 500;">${durationMinutes.toFixed(0)} mins</span>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+                <span>Earnings:</span>
+                <span style="font-weight: 500;">RM ${earnings.toFixed(2)}</span>
+            </div>
+        `;
+        
+        if (routeLayer) map.removeLayer(routeLayer);
+        routeLayer = L.geoJSON(route.geometry, { color: '#ef4444', weight: 4 }).addTo(map);
+        map.fitBounds(routeLayer.getBounds());
+    } catch (error) {
+        console.error('Route calculation error:', error);
+        output.style.color = 'var(--error-color)';
+        output.innerHTML = "Network error. Please try again.";
+    } finally {
+        calculateBtn.innerText = originalBtnText;
+        calculateBtn.disabled = false;
+    }
+}
+function togglePanel() {
+    const panel = document.getElementById('planner');
+    panel.style.display = (panel.style.display === 'none') ? 'block' : 'none';
+}
+function showSummaryModal() {
+    const output = document.getElementById('output');
+    if (!output.innerText.trim()) {
+        output.style.color = 'var(--error-color)';
+        output.innerHTML = "Please calculate a route first.";
+        setTimeout(() => {
+            output.innerHTML = '';
+            output.style.color = 'var(--text-primary)';
+        }, 3000);
+        return;
+    }
+    
+    const modal = document.getElementById('summaryModal');
+    modal.style.display = 'block';
+    
+    const summaryInfo = document.getElementById('summaryInfo');
+    summaryInfo.innerHTML = output.innerHTML;
+    
+    // Reset download attempts
+    downloadAttempt = 0;
+    document.getElementById('downloadErrorContainer').style.display = 'none';
+    
+    mapReady = false;
+    const downloadBtn = document.getElementById('downloadSummaryBtn');
+    downloadBtn.disabled = true;
+    downloadBtn.innerHTML = '<span class="loading-spinner"></span>Preparing map...';
+    
+    setTimeout(() => {
+        if (summaryMapInstance) {
+            summaryMapInstance.remove();
+        }
+        
+        const center = map.getCenter();
+        const zoom = map.getZoom();
+        
+        summaryMapInstance = L.map('summaryMap').setView([center.lat, center.lng], zoom);
+        
+        const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(summaryMapInstance);
+        
+        if (routeData && routeLayer) {
+            L.geoJSON(routeData.geometry, { color: '#ef4444', weight: 4 }).addTo(summaryMapInstance);
+            summaryMapInstance.fitBounds(routeLayer.getBounds());
+        }
+        
+        setTimeout(() => {
+            summaryMapInstance.invalidateSize();
+        }, 100);
+        
+        // Track when all tiles are loaded
+        let tilesLoaded = 0;
+        let totalTiles = 0;
+        
+        const onTileLoad = () => {
+            tilesLoaded++;
+            if (tilesLoaded >= totalTiles) {
+                setTimeout(() => {
+                    mapReady = true;
+                    downloadBtn.disabled = false;
+                    downloadBtn.innerHTML = 'Download as Image';
+                }, 500);
+            }
+        };
+        
+        tileLayer.on('loading', function() {
+            totalTiles++;
+        });
+        
+        tileLayer.on('load', onTileLoad);
+        
+        // Fallback in case tiles are already loaded
+        setTimeout(() => {
+            if (!mapReady) {
+                mapReady = true;
+                downloadBtn.disabled = false;
+                downloadBtn.innerHTML = 'Download as Image';
+            }
+        }, 3000);
+    }, 100);
+}
+function closeSummaryModal() {
+    const modal = document.getElementById('summaryModal');
+    modal.style.display = 'none';
+}
+function retryDownload() {
+    document.getElementById('downloadErrorContainer').style.display = 'none';
+    downloadSummaryImage();
+}
+
+// Function to fix the SVG offset issue in Leaflet maps when capturing with html2canvas
+function fixMapTransform(mapInstance) {
+    // Get all map panes
+    const panes = mapInstance.getPanes();
+    
+    // Store original transforms
+    const originalTransforms = {};
+    
+    // Reset transforms for all panes
+    Object.keys(panes).forEach(paneName => {
+        const pane = panes[paneName];
+        if (pane && pane.style) {
+            originalTransforms[paneName] = pane.style.transform;
+            pane.style.transform = '';
+        }
+    });
+    
+    // Force a redraw
+    mapInstance._updatePaths();
+    
+    // Return a function to restore the original transforms
+    return function restoreTransforms() {
+        Object.keys(originalTransforms).forEach(paneName => {
+            const pane = panes[paneName];
+            if (pane && pane.style) {
+                pane.style.transform = originalTransforms[paneName];
+            }
+        });
+    };
+}
+
+async function downloadSummaryImage() {
+    if (!mapReady) {
+        showNotification('Please wait for the map to fully load before downloading.');
+        return;
+    }
+    
+    if (downloadAttempt >= MAX_DOWNLOAD_ATTEMPTS) {
+        showNotification('Maximum download attempts reached. Please try again later.');
+        document.getElementById('downloadSummaryBtn').disabled = false;
+        document.getElementById('downloadSummaryBtn').innerHTML = 'Download as Image';
+        return;
+    }
+    
+    downloadAttempt++;
+    
+    try {
+        const downloadBtn = document.getElementById('downloadSummaryBtn');
+        downloadBtn.disabled = true;
+        downloadBtn.innerHTML = '<span class="loading-spinner"></span>Generating image...';
+        
+        const summaryContainer = document.getElementById('summaryImageContainer');
+        const summaryInfo = document.getElementById('summaryInfo');
+        
+        // Copy the summary info to the hidden container
+        document.getElementById('summaryImageInfo').innerHTML = summaryInfo.innerHTML;
+        
+        // Make the container visible temporarily
+        summaryContainer.style.display = 'block';
+        summaryContainer.style.position = 'relative';
+        summaryContainer.style.top = '0';
+        summaryContainer.style.left = '0';
+        
+        // Initialize or reset the map for the image
+        setTimeout(() => {
+            if (summaryImageMapInstance) {
+                summaryImageMapInstance.remove();
+            }
+            
+            const center = map.getCenter();
+            const zoom = map.getZoom();
+            
+            summaryImageMapInstance = L.map('summaryImageMap').setView([center.lat, center.lng], zoom);
+            
+            const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(summaryImageMapInstance);
+            
+            if (routeData && routeLayer) {
+                L.geoJSON(routeData.geometry, { color: '#ef4444', weight: 4 }).addTo(summaryImageMapInstance);
+                summaryImageMapInstance.fitBounds(routeLayer.getBounds());
+            }
+            
+            // Wait for the map to load
+            let tilesLoaded = 0;
+            let totalTiles = 0;
+            
+            const onTileLoad = () => {
+                tilesLoaded++;
+                if (tilesLoaded >= totalTiles) {
+                    setTimeout(async () => {
+                        try {
+                            // Fix the transform issue before capturing
+                            const restoreTransforms = fixMapTransform(summaryImageMapInstance);
+                            
+                            // Wait a bit for the transform to be applied
+                            await new Promise(resolve => setTimeout(resolve, 100));
+                            
+                            // Capture the container
+                            const canvas = await html2canvas(summaryContainer, {
+                                useCORS: true,
+                                allowTaint: true,
+                                scale: 2,
+                                logging: false,
+                                backgroundColor: '#1e293b',
+                                width: summaryContainer.offsetWidth,
+                                height: summaryContainer.offsetHeight,
+                                scrollX: 0,
+                                scrollY: 0
+                            });
+                            
+                            // Restore the original transforms
+                            restoreTransforms();
+                            
+                            // Hide the container again
+                            summaryContainer.style.display = 'none';
+                            summaryContainer.style.position = 'absolute';
+                            summaryContainer.style.top = '-9999px';
+                            summaryContainer.style.left = '-9999px';
+                            
+                            // Convert to data URL and download
+                            canvas.toBlob(blob => {
+                                if (blob) {
+                                    const url = URL.createObjectURL(blob);
+                                    const a = document.createElement('a');
+                                    a.href = url;
+                                    a.download = `delivery-summary-${new Date().getTime()}.png`;
+                                    document.body.appendChild(a);
+                                    a.click();
+                                    document.body.removeChild(a);
+                                    URL.revokeObjectURL(url);
+                                    
+                                    // Show success notification
+                                    showNotification('Summary downloaded successfully!', 'success');
+                                    
+                                    // Reset the button
+                                    downloadBtn.disabled = false;
+                                    downloadBtn.innerHTML = 'Download as Image';
+                                } else {
+                                    throw new Error('Failed to create blob from canvas');
+                                }
+                            }, 'image/png');
+                        } catch (error) {
+                            console.error("Error capturing canvas:", error);
+                            summaryContainer.style.display = 'none';
+                            summaryContainer.style.position = 'absolute';
+                            summaryContainer.style.top = '-9999px';
+                            summaryContainer.style.left = '-9999px';
+                            
+                            throw error;
+                        }
+                    }, 1000);
+                }
+            };
+            
+            tileLayer.on('loading', function() {
+                totalTiles++;
+            });
+            
+            tileLayer.on('load', onTileLoad);
+            
+            // Fallback in case tiles are already loaded
+            setTimeout(() => {
+                if (tilesLoaded < totalTiles) {
+                    onTileLoad();
+                }
+            }, 3000);
+        }, 100);
+    } catch (error) {
+        console.error("Error in download process:", error);
+        
+        const summaryContainer = document.getElementById('summaryImageContainer');
+        summaryContainer.style.display = 'none';
+        summaryContainer.style.position = 'absolute';
+        summaryContainer.style.top = '-9999px';
+        summaryContainer.style.left = '-9999px';
+        
+        const downloadBtn = document.getElementById('downloadSummaryBtn');
+        downloadBtn.disabled = false;
+        downloadBtn.innerHTML = 'Download as Image';
+        
+        // Show error in modal
+        document.getElementById('downloadErrorContainer').style.display = 'block';
+        
+        // Show notification
+        showNotification('Error generating summary. Please try again.');
+    }
+}
+</script>
+</body>
 </html>
