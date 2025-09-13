@@ -131,6 +131,60 @@
         from { opacity: 0; transform: translateY(-5px); }
         to { opacity: 1; transform: translateY(0); }
     }
+    /* Modal styling for the summary */
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 2000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.8);
+        overflow: auto;
+    }
+    .modal-content {
+        background-color: black;
+        margin: 5% auto;
+        padding: 20px;
+        border: 1px solid #00f7ff;
+        border-radius: 12px;
+        width: 80%;
+        max-width: 800px;
+        box-shadow: 0 0 20px #00f7ff;
+    }
+    .close {
+        color: #00f7ff;
+        float: right;
+        font-size: 28px;
+        font-weight: bold;
+        cursor: pointer;
+    }
+    .close:hover {
+        color: #00ffff;
+    }
+    #summaryMap {
+        height: 400px;
+        width: 100%;
+        border: 1px solid #00f7ff;
+        border-radius: 8px;
+        margin: 15px 0;
+    }
+    .summary-info {
+        text-align: center;
+        font-size: 18px;
+        margin: 15px 0;
+    }
+    .modal-buttons {
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+        margin-top: 15px;
+    }
+    .modal-buttons button {
+        width: auto;
+        padding: 10px 20px;
+    }
 </style>
 </head>
 <body>
@@ -154,9 +208,24 @@
     <button onclick="calculateRoute()">Calculate</button>
     <p id="output"></p>
     <!-- DOWNLOAD BUTTON -->
-    <button id="downloadBtn" onclick="downloadSummary()" style="margin-top:8px;">📥 Download Summary</button>
+    <button id="downloadBtn" onclick="showSummaryModal()" style="margin-top:8px;">📥 Download Summary</button>
 </div>
 <button class="toggle-btn" onclick="togglePanel()">☰</button>
+
+<!-- Modal for delivery summary -->
+<div id="summaryModal" class="modal">
+  <div class="modal-content">
+    <span class="close" onclick="closeSummaryModal()">&times;</span>
+    <h2 style="color: #00f7ff; text-align: center;">Delivery Summary</h2>
+    <div id="summaryMap"></div>
+    <div id="summaryInfo" class="summary-info"></div>
+    <div class="modal-buttons">
+        <button onclick="downloadSummaryImage()">📥 Download as Image</button>
+        <button onclick="closeSummaryModal()">Close</button>
+    </div>
+  </div>
+</div>
+
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script>
 let map = L.map('map').setView([1.5533, 110.3592], 8);
@@ -167,6 +236,7 @@ let startCoords = null;
 let endCoords = null;
 let waypointCoords = [];
 let routeLayer = null;
+let routeData = null; // Store route data for summary
 function autocomplete(inputId, listId) {
     const input = document.getElementById(inputId);
     const list = document.getElementById(listId);
@@ -278,6 +348,7 @@ async function calculateRoute() {
             return;
         }
         const route = data.routes[0];
+        routeData = route; // Store route data for summary
         const distanceKm = route.distance / 1000;
         const durationMinutes = route.duration / 60;
         let earnings = 0;
@@ -305,7 +376,9 @@ function togglePanel() {
 </script>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script>
-async function downloadSummary() {
+let summaryMapInstance = null;
+
+function showSummaryModal() {
     const output = document.getElementById('output');
     if (!output.innerText.trim()) {
         output.style.color = 'red';
@@ -316,125 +389,68 @@ async function downloadSummary() {
         }, 3000);
         return;
     }
-    try {
-        // Create a temporary div to hold our summary
-        const summaryDiv = document.createElement('div');
-        summaryDiv.style.position = 'absolute';
-        summaryDiv.style.top = '-9999px';
-        summaryDiv.style.left = '-9999px';
-        summaryDiv.style.width = '800px';
-        summaryDiv.style.height = '600px';
-        summaryDiv.style.background = 'black';
-        summaryDiv.style.color = 'white';
-        summaryDiv.style.padding = '20px';
-        summaryDiv.style.boxSizing = 'border-box';
-        summaryDiv.style.fontFamily = "'Segoe UI', sans-serif";
-        document.body.appendChild(summaryDiv);
-        
-        // Create a title for the summary
-        const title = document.createElement('h2');
-        title.textContent = 'Delivery Summary';
-        title.style.color = '#00f7ff';
-        title.style.marginTop = '0';
-        title.style.textAlign = 'center';
-        summaryDiv.appendChild(title);
-        
-        // Create a map container for the summary
-        const summaryMap = document.createElement('div');
-        summaryMap.style.width = '100%';
-        summaryMap.style.height = '400px';
-        summaryMap.style.marginBottom = '20px';
-        summaryMap.style.border = '1px solid #00f7ff';
-        summaryMap.style.borderRadius = '8px';
-        summaryDiv.appendChild(summaryMap);
-        
-        // Create a div for the route information
-        const infoDiv = document.createElement('div');
-        infoDiv.innerHTML = output.innerHTML;
-        infoDiv.style.fontSize = '18px';
-        infoDiv.style.lineHeight = '1.5';
-        infoDiv.style.textAlign = 'center';
-        summaryDiv.appendChild(infoDiv);
-        
-        // Get the current map view and route data
-        const center = map.getCenter();
-        const zoom = map.getZoom();
-        let routeGeoJSON = null;
-        
-        if (routeLayer) {
-            routeGeoJSON = routeLayer.toGeoJSON();
+    
+    // Show the modal
+    const modal = document.getElementById('summaryModal');
+    modal.style.display = 'block';
+    
+    // Copy the output information to the summary info div
+    const summaryInfo = document.getElementById('summaryInfo');
+    summaryInfo.innerHTML = output.innerHTML;
+    
+    // Initialize the summary map
+    setTimeout(() => {
+        if (summaryMapInstance) {
+            summaryMapInstance.remove();
         }
         
-        // Initialize a new map for the summary
-        const summaryMapInstance = L.map(summaryMap).setView([center.lat, center.lng], zoom);
+        const center = map.getCenter();
+        const zoom = map.getZoom();
+        
+        summaryMapInstance = L.map('summaryMap').setView([center.lat, center.lng], zoom);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; OpenStreetMap contributors'
         }).addTo(summaryMapInstance);
         
         // Add the route to the summary map if it exists
-        if (routeGeoJSON) {
-            L.geoJSON(routeGeoJSON, { color: '#EE422E' }).addTo(summaryMapInstance);
-            if (routeLayer) {
-                summaryMapInstance.fitBounds(routeLayer.getBounds());
-            }
+        if (routeData && routeLayer) {
+            L.geoJSON(routeData.geometry, { color: '#EE422E' }).addTo(summaryMapInstance);
+            summaryMapInstance.fitBounds(routeLayer.getBounds());
         }
         
-        // Wait for the map to fully render
-        setTimeout(async () => {
-            try {
-                // Force the map to update
-                summaryMapInstance.invalidateSize();
-                
-                // Wait a bit more for tiles to load
-                setTimeout(async () => {
-                    try {
-                        // Capture the summary div
-                        const canvas = await html2canvas(summaryDiv, {
-                            useCORS: true,
-                            allowTaint: true,
-                            scale: 1,
-                            logging: false
-                        });
-                        
-                        // Convert canvas to data URL and trigger download
-                        const a = document.createElement('a');
-                        a.href = canvas.toDataURL('image/png');
-                        a.download = 'delivery-summary.png';
-                        a.click();
-                        
-                        // Clean up
-                        document.body.removeChild(summaryDiv);
-                        summaryMapInstance.remove();
-                    } catch (error) {
-                        console.error("Error capturing canvas:", error);
-                        output.style.color = 'red';
-                        output.innerHTML = "Error generating summary. Please try again.";
-                        setTimeout(() => {
-                            output.innerHTML = '';
-                            output.style.color = '#00f7ff';
-                        }, 3000);
-                        
-                        // Clean up
-                        document.body.removeChild(summaryDiv);
-                        summaryMapInstance.remove();
-                    }
-                }, 1000); // Extra time for tiles to load
-            } catch (error) {
-                console.error("Error in map rendering:", error);
-                output.style.color = 'red';
-                output.innerHTML = "Error generating summary. Please try again.";
-                setTimeout(() => {
-                    output.innerHTML = '';
-                    output.style.color = '#00f7ff';
-                }, 3000);
-                
-                // Clean up
-                document.body.removeChild(summaryDiv);
-                summaryMapInstance.remove();
-            }
-        }, 500); // Initial time for map to render
+        // Force the map to update
+        setTimeout(() => {
+            summaryMapInstance.invalidateSize();
+        }, 100);
+    }, 100);
+}
+
+function closeSummaryModal() {
+    const modal = document.getElementById('summaryModal');
+    modal.style.display = 'none';
+}
+
+async function downloadSummaryImage() {
+    try {
+        // Get the modal content
+        const modalContent = document.querySelector('.modal-content');
+        
+        // Use html2canvas to capture the modal content
+        const canvas = await html2canvas(modalContent, {
+            useCORS: true,
+            allowTaint: true,
+            scale: 1,
+            logging: false
+        });
+        
+        // Convert canvas to data URL and trigger download
+        const a = document.createElement('a');
+        a.href = canvas.toDataURL('image/png');
+        a.download = 'delivery-summary.png';
+        a.click();
     } catch (error) {
-        console.error("Error in download process:", error);
+        console.error("Error capturing canvas:", error);
+        const output = document.getElementById('output');
         output.style.color = 'red';
         output.innerHTML = "Error generating summary. Please try again.";
         setTimeout(() => {
