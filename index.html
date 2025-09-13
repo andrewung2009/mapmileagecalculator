@@ -183,7 +183,7 @@
         height: 100%;
         background-color: rgba(15, 23, 42, 0.85);
         overflow: auto;
-        backdrop-filter: blur(4px);
+        backdrop-filter: none;
     }
     
     .modal-content {
@@ -424,7 +424,7 @@
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script>
-let map = L.map('map').setView([1.5533, 110.3592], 8);
+let map = L.map('map', { preferCanvas: true }).setView([1.5533, 110.3592], 8);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; OpenStreetMap contributors'
 }).addTo(map);
@@ -434,8 +434,8 @@ let waypointCoords = [];
 let routeLayer = null;
 let routeData = null;
 let summaryMapInstance = null;
-let mapReady = false;
 let summaryImageMapInstance = null;
+let mapReady = false;
 let downloadAttempt = 0;
 const MAX_DOWNLOAD_ATTEMPTS = 3;
 
@@ -595,7 +595,11 @@ async function calculateRoute() {
         `;
         
         if (routeLayer) map.removeLayer(routeLayer);
-        routeLayer = L.geoJSON(route.geometry, { color: '#ef4444', weight: 4 }).addTo(map);
+        routeLayer = L.geoJSON(route.geometry, {
+            color: '#ef4444', 
+            weight: 4, 
+            renderer: L.canvas()
+        }).addTo(map);
         map.fitBounds(routeLayer.getBounds());
     } catch (error) {
         console.error('Route calculation error:', error);
@@ -645,14 +649,18 @@ function showSummaryModal() {
         const center = map.getCenter();
         const zoom = map.getZoom();
         
-        summaryMapInstance = L.map('summaryMap').setView([center.lat, center.lng], zoom);
+        summaryMapInstance = L.map('summaryMap', {preferCanvas: true}).setView([center.lat, center.lng], zoom);
         
         const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; OpenStreetMap contributors'
         }).addTo(summaryMapInstance);
         
         if (routeData && routeLayer) {
-            L.geoJSON(routeData.geometry, { color: '#ef4444', weight: 4 }).addTo(summaryMapInstance);
+            L.geoJSON(routeData.geometry, {
+                color: '#ef4444', 
+                weight: 4, 
+                renderer: L.canvas()
+            }).addTo(summaryMapInstance);
             summaryMapInstance.fitBounds(routeLayer.getBounds());
         }
         
@@ -689,7 +697,7 @@ function showSummaryModal() {
                 downloadBtn.innerHTML = 'Download as Image';
             }
         }, 3000);
-    }, 100);
+    }, 200);
 }
 function closeSummaryModal() {
     const modal = document.getElementById('summaryModal');
@@ -699,38 +707,6 @@ function retryDownload() {
     document.getElementById('downloadErrorContainer').style.display = 'none';
     downloadSummaryImage();
 }
-
-// Function to fix the SVG offset issue in Leaflet maps when capturing with html2canvas
-function fixMapTransform(mapInstance) {
-    // Get all map panes
-    const panes = mapInstance.getPanes();
-    
-    // Store original transforms
-    const originalTransforms = {};
-    
-    // Reset transforms for all panes
-    Object.keys(panes).forEach(paneName => {
-        const pane = panes[paneName];
-        if (pane && pane.style) {
-            originalTransforms[paneName] = pane.style.transform;
-            pane.style.transform = '';
-        }
-    });
-    
-    // Force a redraw
-    mapInstance._updatePaths();
-    
-    // Return a function to restore the original transforms
-    return function restoreTransforms() {
-        Object.keys(originalTransforms).forEach(paneName => {
-            const pane = panes[paneName];
-            if (pane && pane.style) {
-                pane.style.transform = originalTransforms[paneName];
-            }
-        });
-    };
-}
-
 async function downloadSummaryImage() {
     if (!mapReady) {
         showNotification('Please wait for the map to fully load before downloading.');
@@ -772,14 +748,18 @@ async function downloadSummaryImage() {
             const center = map.getCenter();
             const zoom = map.getZoom();
             
-            summaryImageMapInstance = L.map('summaryImageMap').setView([center.lat, center.lng], zoom);
+            summaryImageMapInstance = L.map('summaryImageMap', {preferCanvas: true}).setView([center.lat, center.lng], zoom);
             
             const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '&copy; OpenStreetMap contributors'
             }).addTo(summaryImageMapInstance);
             
             if (routeData && routeLayer) {
-                L.geoJSON(routeData.geometry, { color: '#ef4444', weight: 4 }).addTo(summaryImageMapInstance);
+                L.geoJSON(routeData.geometry, {
+                    color: '#ef4444', 
+                    weight: 4, 
+                    renderer: L.canvas()
+                }).addTo(summaryImageMapInstance);
                 summaryImageMapInstance.fitBounds(routeLayer.getBounds());
             }
             
@@ -792,12 +772,6 @@ async function downloadSummaryImage() {
                 if (tilesLoaded >= totalTiles) {
                     setTimeout(async () => {
                         try {
-                            // Fix the transform issue before capturing
-                            const restoreTransforms = fixMapTransform(summaryImageMapInstance);
-                            
-                            // Wait a bit for the transform to be applied
-                            await new Promise(resolve => setTimeout(resolve, 100));
-                            
                             // Capture the container
                             const canvas = await html2canvas(summaryContainer, {
                                 useCORS: true,
@@ -810,9 +784,6 @@ async function downloadSummaryImage() {
                                 scrollX: 0,
                                 scrollY: 0
                             });
-                            
-                            // Restore the original transforms
-                            restoreTransforms();
                             
                             // Hide the container again
                             summaryContainer.style.display = 'none';
