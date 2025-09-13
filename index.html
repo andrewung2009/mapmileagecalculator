@@ -274,6 +274,39 @@
             height: 300px;
         }
     }
+    
+    /* Summary image container - for generating the screenshot */
+    #screenshotContainer {
+        position: absolute;
+        top: -9999px;
+        left: -9999px;
+        width: 800px;
+        background: #1e293b;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+    }
+    
+    #screenshotTitle {
+        color: #f1f5f9;
+        text-align: center;
+        padding: 20px;
+        font-size: 24px;
+        font-weight: 600;
+    }
+    
+    #screenshotMap {
+        height: 400px;
+        width: 100%;
+        background: #0f172a;
+    }
+    
+    #screenshotInfo {
+        padding: 20px;
+        font-size: 18px;
+        text-align: center;
+        background: #0f172a;
+    }
 </style>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 </head>
@@ -312,6 +345,12 @@
         <button onclick="closeSummaryModal()">Close</button>
     </div>
   </div>
+</div>
+<!-- Hidden container for generating the screenshot -->
+<div id="screenshotContainer">
+    <div id="screenshotTitle">Delivery Summary</div>
+    <div id="screenshotMap"></div>
+    <div id="screenshotInfo"></div>
 </div>
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
@@ -556,96 +595,66 @@ async function downloadSummaryImage() {
     downloadBtn.innerHTML = '<span class="loading-spinner"></span>Generating image...';
     
     try {
-        // Create a clone of the modal content
-        const modalContent = document.querySelector('.modal-content');
-        const clone = modalContent.cloneNode(true);
+        // Get the summary info
+        const summaryInfo = document.getElementById('summaryInfo').innerHTML;
         
-        // Remove the close button and modal buttons from the clone
-        const closeBtn = clone.querySelector('.close');
-        if (closeBtn) closeBtn.remove();
+        // Set up the screenshot container
+        const screenshotContainer = document.getElementById('screenshotContainer');
+        const screenshotMap = document.getElementById('screenshotMap');
+        const screenshotInfo = document.getElementById('screenshotInfo');
         
-        const modalButtons = clone.querySelector('.modal-buttons');
-        if (modalButtons) modalButtons.remove();
+        // Copy the summary info to the screenshot container
+        screenshotInfo.innerHTML = summaryInfo;
         
-        // Position the clone off-screen
-        clone.style.position = 'absolute';
-        clone.style.left = '-9999px';
-        clone.style.top = '0';
-        clone.style.width = '700px'; // Same as max-width
-        document.body.appendChild(clone);
+        // Initialize the map in the screenshot container
+        const screenshotMapInstance = L.map(screenshotMap).setView(map.getCenter(), map.getZoom());
         
-        // Initialize the map in the clone
-        const cloneMapContainer = clone.querySelector('#summaryMap');
-        if (cloneMapContainer && routeData) {
-            const cloneMap = L.map(cloneMapContainer).setView(map.getCenter(), map.getZoom());
-            
-            const cloneTileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; OpenStreetMap contributors'
-            }).addTo(cloneMap);
-            
-            L.geoJSON(routeData.geometry, { color: '#ef4444', weight: 4 }).addTo(cloneMap);
-            cloneMap.fitBounds(routeLayer.getBounds());
-            
-            // Wait for the map to load
-            cloneTileLayer.on('load', async function() {
-                setTimeout(async () => {
-                    try {
-                        // Capture the clone
-                        const canvas = await html2canvas(clone, {
-                            useCORS: true,
-                            allowTaint: true,
-                            scale: 2,
-                            backgroundColor: '#1e293b'
-                        });
-                        
-                        // Remove the clone
-                        document.body.removeChild(clone);
-                        
-                        // Download the image
-                        const a = document.createElement('a');
-                        a.href = canvas.toDataURL('image/png');
-                        a.download = 'delivery-summary.png';
-                        a.click();
-                        
-                        // Reset the button
-                        downloadBtn.disabled = false;
-                        downloadBtn.innerHTML = 'Download as Image';
-                    } catch (error) {
-                        console.error('Error capturing canvas:', error);
-                        document.body.removeChild(clone);
-                        
-                        downloadBtn.disabled = false;
-                        downloadBtn.innerHTML = 'Download as Image';
-                        
-                        const output = document.getElementById('output');
-                        output.style.color = 'var(--error-color)';
-                        output.innerHTML = "Error generating summary. Please try again.";
-                        setTimeout(() => {
-                            output.innerHTML = '';
-                            output.style.color = 'var(--text-primary)';
-                        }, 3000);
-                    }
-                }, 1000);
-            });
-        } else {
-            // If no route data, just capture the clone without the map
-            const canvas = await html2canvas(clone, {
-                useCORS: true,
-                allowTaint: true,
-                scale: 2,
-                backgroundColor: '#1e293b'
-            });
-            
-            document.body.removeChild(clone);
-            
-            const a = document.createElement('a');
-            a.href = canvas.toDataURL('image/png');
-            a.download = 'delivery-summary.png';
-            a.click();
-            
-            downloadBtn.disabled = false;
-            downloadBtn.innerHTML = 'Download as Image';
+        const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(screenshotMapInstance);
+        
+        if (routeData && routeLayer) {
+            L.geoJSON(routeData.geometry, { color: '#ef4444', weight: 4 }).addTo(screenshotMapInstance);
+            screenshotMapInstance.fitBounds(routeLayer.getBounds());
         }
+        
+        // Wait for the map to load
+        tileLayer.on('load', async function() {
+            setTimeout(async () => {
+                try {
+                    // Capture the screenshot container
+                    const canvas = await html2canvas(screenshotContainer, {
+                        useCORS: true,
+                        allowTaint: true,
+                        scale: 2,
+                        backgroundColor: '#1e293b'
+                    });
+                    
+                    // Download the image
+                    const a = document.createElement('a');
+                    a.href = canvas.toDataURL('image/png');
+                    a.download = 'delivery-summary.png';
+                    a.click();
+                    
+                    // Reset the button
+                    downloadBtn.disabled = false;
+                    downloadBtn.innerHTML = 'Download as Image';
+                } catch (error) {
+                    console.error('Error capturing canvas:', error);
+                    
+                    downloadBtn.disabled = false;
+                    downloadBtn.innerHTML = 'Download as Image';
+                    
+                    const output = document.getElementById('output');
+                    output.style.color = 'var(--error-color)';
+                    output.innerHTML = "Error generating summary. Please try again.";
+                    setTimeout(() => {
+                        output.innerHTML = '';
+                        output.style.color = 'var(--text-primary)';
+                    }, 3000);
+                }
+            }, 1000);
+        });
     } catch (error) {
         console.error('Error generating image:', error);
         downloadBtn.disabled = false;
