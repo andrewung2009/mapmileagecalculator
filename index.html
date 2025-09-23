@@ -575,9 +575,7 @@ async function calculateRoute() {
         routeData = route;
         const distanceKm = route.distance / 1000;
         const durationMinutes = route.duration / 60;
-        let earnings = 0;
-        if (distanceKm <= 15) earnings = 10;
-        else earnings = distanceKm * 0.60;  // Changed from 0.5 to 0.60
+        const earnings = distanceKm * 0.60;  // Calculate earnings based on distance
         
         output.innerHTML = `
             <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
