@@ -1,35 +1,73 @@
-A web-based route planning application designed for delivery drivers to optimize their routes, calculate distances, estimated travel times, and potential earnings.
+# 🚚 Delivery Route Planner
 
-Features
-Interactive Map: Built with Leaflet.js for a responsive and interactive mapping experience
-Location Search: Autocomplete functionality for finding addresses using the Photon API
-Route Planning: Add multiple waypoints between start and end locations
-Route Calculation: Calculates optimal routes using the OSRM routing engine
-Delivery Metrics: Displays distance, estimated travel time, and earnings (RM 0.60 per km)
-Route Visualization: Visualizes the calculated route on the map
-Summary Download: Generate and download a summary image of your delivery route
-Technologies Used
-Leaflet.js: Interactive maps
-OpenStreetMap: Map tiles
-Photon API: Location search and geocoding
-OSRM API: Route calculation
-html2canvas: Generating summary images
-HTML5, CSS3, JavaScript: Core web technologies
-How to Use
-Set Start Location: Enter your starting point in the "Start location" field
-Add Waypoints: Click "+ Add Location" to add intermediate stops as needed
-Set Destination: Enter your final destination in the "Destination" field
-Calculate Route: Click "Calculate Route" to generate the optimal path
-View Results: The distance, estimated time, and earnings will be displayed
-Download Summary: Click "Download Summary" to save a visual summary of your route
-Running the Application
-This application is a single HTML file that can be run directly in any modern web browser:
+A web-based route optimization application designed specifically for delivery drivers to maximize efficiency, calculate distances, estimate travel times, and project potential earnings.
 
-Download the delivery-planner.html file
-Open it in your browser (Chrome, Firefox, Safari, Edge)
-No installation or server setup required
+---
 
-Limitations
-Earnings calculation is based on a fixed rate of RM 0.60 per kilometer
-Route calculation is optimized for driving only
-Location search is limited to Malaysia (bounding box: 109.5,0.8,115,5.5)
+## ✨ Key Features
+
+| Feature | Description |
+|---------|-------------|
+| **Interactive Map** | Built with Leaflet.js for a responsive and intuitive mapping experience |
+| **Smart Location Search** | Autocomplete functionality using Photon API for precise address finding |
+| **Flexible Route Planning** | Add unlimited waypoints between start and end locations |
+| **Optimized Route Calculation** | Leverages OSRM routing engine for optimal path determination |
+| **Comprehensive Delivery Metrics** | Displays distance, estimated travel time, and earnings (RM 0.60/km) |
+| **Visual Route Mapping** | Clear visualization of calculated routes on the interactive map |
+| **Summary Export** | Generate and download visual route summaries as images |
+
+---
+
+## 🛠️ Technology Stack
+
+| Component | Technology |
+|-----------|------------|
+| **Mapping Framework** | Leaflet.js |
+| **Map Data Source** | OpenStreetMap |
+| **Geocoding Service** | Photon API |
+| **Routing Engine** | OSRM API |
+| **Image Generation** | html2canvas |
+| **Core Technologies** | HTML5, CSS3, JavaScript |
+
+---
+
+## 📋 User Guide
+
+### Step-by-Step Instructions
+
+1. **🏁 Set Start Location**  
+   Enter your starting point in the "Start location" field
+
+2. **➕ Add Waypoints**  
+   Click "+ Add Location" to include intermediate stops as needed
+
+3. **🎯 Set Destination**  
+   Enter your final destination in the "Destination" field
+
+4. **🧮 Calculate Route**  
+   Click "Calculate Route" to generate the optimal path
+
+5. **📊 View Results**  
+   Review distance, estimated time, and earnings in the metrics panel
+
+6. **💾 Download Summary**  
+   Click "Download Summary" to save a visual route summary
+
+---
+
+## 🚀 Quick Start
+
+This application runs entirely in your browser - no installation required:
+
+1. Download the `delivery-planner.html` file
+2. Open it in any modern browser (Chrome, Firefox, Safari, Edge)
+3. Start planning your optimized delivery route immediately!
+
+---
+
+## ⚠️ Limitations
+
+> **Important Notes:**  
+> - Earnings calculation uses a fixed rate of **RM 0.60 per kilometer**  
+> - Route optimization is designed **exclusively for driving** routes  
+> - Location search is **limited to Malaysia** (bounding box: 109.5,0.8,115,5.5)
