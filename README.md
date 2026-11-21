@@ -1,5 +1,9 @@
 # 🚚 Delivery Route Planner
 
+<p align="center">
+  <img src="favicon.svg" alt="Delivery Planner icon: a teal destination pin reached by a planned route" width="96" height="96">
+</p>
+
 A web-based route optimization application designed specifically for delivery drivers to maximize efficiency, calculate distances, estimate travel times, and project potential earnings.
 
 ---
@@ -59,7 +63,7 @@ A web-based route optimization application designed specifically for delivery dr
 
 This application runs entirely in your browser - no installation required:
 
-1. Download the `delivery-planner.html` file
+1. Download the `index.html` file
 2. Open it in any modern browser (Chrome, Firefox, Safari, Edge)
 3. Start planning your optimized delivery route immediately!
 
